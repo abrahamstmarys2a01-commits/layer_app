@@ -1,11 +1,27 @@
 const Junior = require('../models/Junior');
 const Case = require('../models/Case');
 
-// @desc    Add a new junior
+// @desc    Add a new junior (or update if username/email/name already exists)
 // @route   POST /api/juniors
 // @access  Public
 const addJunior = async (req, res) => {
   try {
+    const { juniorName, username, email } = req.body;
+    if (username || email || juniorName) {
+      const existing = await Junior.findOne({
+        $or: [
+          ...(username ? [{ username: username.trim() }] : []),
+          ...(email ? [{ email: email.trim().toLowerCase() }] : []),
+          ...(juniorName ? [{ juniorName: new RegExp(`^${juniorName.trim()}$`, 'i') }] : []),
+        ]
+      });
+      if (existing) {
+        Object.assign(existing, req.body);
+        const updated = await existing.save();
+        return res.status(200).json(updated);
+      }
+    }
+
     const newJunior = new Junior(req.body);
     const savedJunior = await newJunior.save();
     res.status(201).json(savedJunior);
@@ -15,13 +31,23 @@ const addJunior = async (req, res) => {
   }
 };
 
-// @desc    Get all juniors
+// @desc    Get all unique juniors
 // @route   GET /api/juniors
 // @access  Public
 const getJuniors = async (req, res) => {
   try {
-    const juniors = await Junior.find().sort({ createdAt: -1 });
-    res.json(juniors);
+    const rawJuniors = await Junior.find().sort({ createdAt: -1 });
+    // Strictly deduplicate by username or juniorName
+    const seen = new Set();
+    const uniqueJuniors = [];
+    for (const j of rawJuniors) {
+      const key = (j.username || j.juniorName || j.email || j._id.toString()).trim().toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueJuniors.push(j);
+      }
+    }
+    res.json(uniqueJuniors);
   } catch (error) {
     console.error('Error fetching juniors:', error);
     res.status(500).json({ message: 'Server Error', error: error.message });

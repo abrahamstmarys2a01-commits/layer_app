@@ -23,7 +23,7 @@ const findCaseFlexible = async (idOrNumber) => {
   return null;
 };
 
-// @desc    Register a new case
+// @desc    Register a new case (or update if caseNumber already exists to prevent duplicate)
 // @route   POST /api/cases
 // @access  Public
 const addCase = async (req, res) => {
@@ -32,6 +32,16 @@ const addCase = async (req, res) => {
     if (!data.assignedDate) {
       data.assignedDate = data.filedDate || new Date().toISOString().split('T')[0];
     }
+
+    if (data.caseNumber) {
+      const existing = await findCaseFlexible(data.caseNumber);
+      if (existing) {
+        Object.assign(existing, data);
+        const updated = await existing.save();
+        return res.status(200).json(updated);
+      }
+    }
+
     const newCase = new Case(data);
     const savedCase = await newCase.save();
     res.status(201).json(savedCase);
@@ -41,13 +51,23 @@ const addCase = async (req, res) => {
   }
 };
 
-// @desc    Get all cases
+// @desc    Get all unique cases
 // @route   GET /api/cases
 // @access  Public
 const getCases = async (req, res) => {
   try {
-    const cases = await Case.find().sort({ createdAt: -1 });
-    res.json(cases);
+    const rawCases = await Case.find().sort({ createdAt: -1 });
+    // Strictly deduplicate by normalized caseNumber
+    const seen = new Set();
+    const uniqueCases = [];
+    for (const c of rawCases) {
+      const key = (c.caseNumber || c._id.toString()).trim().toUpperCase().replace(/\s+/g, '');
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueCases.push(c);
+      }
+    }
+    res.json(uniqueCases);
   } catch (error) {
     console.error('Error fetching cases:', error);
     res.status(500).json({ message: 'Server Error', error: error.message });
@@ -227,6 +247,92 @@ const getPendingClosures = async (req, res) => {
   }
 };
 
+// @desc    Add a daily note / case update
+// @route   POST /api/cases/:id/daily-updates
+// @access  Public
+const addDailyUpdateToCase = async (req, res) => {
+  try {
+    const { date, update, attachment, addedBy } = req.body;
+
+    if (!date || !update) {
+      return res.status(400).json({ success: false, message: 'Date and Update description are required' });
+    }
+
+    const targetCase = await findCaseFlexible(req.params.id);
+    if (!targetCase) {
+      return res.status(404).json({ success: false, message: 'Case not found' });
+    }
+
+    const newUpdateEntry = {
+      date: date.trim(),
+      update: update.trim(),
+      attachment: attachment || null,
+      addedBy: (addedBy || 'Junior').trim(),
+      createdAt: new Date()
+    };
+
+    if (!Array.isArray(targetCase.dailyUpdates)) {
+      targetCase.dailyUpdates = [];
+    }
+
+    targetCase.dailyUpdates.push(newUpdateEntry);
+    await targetCase.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Case update recorded successfully',
+      case: targetCase,
+      dailyUpdate: newUpdateEntry
+    });
+  } catch (error) {
+    console.error('Error adding daily update:', error);
+    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+  }
+};
+
+// @desc    Add a document to case
+// @route   POST /api/cases/:id/documents
+// @access  Public
+const addDocumentToCase = async (req, res) => {
+  try {
+    const { name, uri, type, size, uploadedAt } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ success: false, message: 'Document name is required' });
+    }
+
+    const targetCase = await findCaseFlexible(req.params.id);
+    if (!targetCase) {
+      return res.status(404).json({ success: false, message: 'Case not found' });
+    }
+
+    const newDoc = {
+      name: name.trim(),
+      uri: uri || '',
+      type: type || 'application/pdf',
+      size: size || '1.2 MB',
+      uploadedAt: uploadedAt || new Date().toISOString().split('T')[0]
+    };
+
+    if (!Array.isArray(targetCase.documents)) {
+      targetCase.documents = [];
+    }
+
+    targetCase.documents.push(newDoc);
+    await targetCase.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Document added to case successfully',
+      case: targetCase,
+      document: newDoc
+    });
+  } catch (error) {
+    console.error('Error adding document to case:', error);
+    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+  }
+};
+
 // @desc    Update a case or its documents
 // @route   PUT /api/cases/:id
 // @access  Public
@@ -251,6 +357,8 @@ module.exports = {
   getCases,
   getCaseById,
   addHearingToCase,
+  addDailyUpdateToCase,
+  addDocumentToCase,
   requestCaseClosure,
   closeCase,
   getPendingClosures,

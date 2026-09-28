@@ -4,6 +4,8 @@ const {
   getCases,
   getCaseById,
   addHearingToCase,
+  addDailyUpdateToCase,
+  addDocumentToCase,
   requestCaseClosure,
   closeCase,
   getPendingClosures,
@@ -29,6 +31,14 @@ expressRouter.get('/:id', getCaseById);
 // @route   POST /api/cases/:id/hearings
 // @desc    Add hearing history entry to a case
 expressRouter.post('/:id/hearings', addHearingToCase);
+
+// @route   POST /api/cases/:id/daily-updates
+// @desc    Add daily notes / case update entry to a case
+expressRouter.post('/:id/daily-updates', addDailyUpdateToCase);
+
+// @route   POST /api/cases/:id/documents
+// @desc    Add document attachment to a case
+expressRouter.post('/:id/documents', addDocumentToCase);
 
 // @route   POST /api/cases/:id/request-closure
 // @desc    Junior requests case closure

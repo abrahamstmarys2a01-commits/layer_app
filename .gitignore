@@ -1,0 +1,17 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Environment
+.env
+.env.*
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Expo / Builds
+.expo/
+*.log
