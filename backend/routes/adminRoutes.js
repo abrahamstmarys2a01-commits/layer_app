@@ -6,14 +6,23 @@ const Case = require('../models/Case');
 // Helper to get or initialize default admin
 const getOrCreateAdmin = async () => {
   let admin = await Admin.findOne();
+  const now = new Date();
   if (!admin) {
     admin = new Admin({
       username: 'admin',
       password: 'admin123',
       name: 'Senior Advocate',
       phone: '+91 98765 43210',
-      email: 'admin@firm.com'
+      email: 'admin@firm.com',
+      trialStartDate: now,
+      trialExpiresAt: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000), // 1 Day Demo for testing
+      isFirstLogin: false
     });
+    await admin.save();
+  } else if (!admin.trialExpiresAt) {
+    admin.trialStartDate = admin.trialStartDate || now;
+    admin.trialExpiresAt = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000); // 1 Day Demo for testing
+    admin.isFirstLogin = false;
     await admin.save();
   }
   return admin;
@@ -36,10 +45,10 @@ expressRouter.post('/login', async (req, res) => {
       if (admin.password === password) {
         const now = new Date();
 
-        // If first login or uninitialized, start 30-day demo countdown from today
+        // If first login or uninitialized, start 1-day demo countdown from today
         if (admin.isFirstLogin || !admin.trialExpiresAt) {
           admin.trialStartDate = now;
-          admin.trialExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+          admin.trialExpiresAt = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);
           admin.isFirstLogin = false;
           await admin.save();
         }
@@ -216,10 +225,10 @@ expressRouter.get('/demo-status', async (req, res) => {
 });
 
 // @route   POST /api/admin/reset-demo
-// @desc    Reset demo trial for another 30 (or custom) days from today
+// @desc    Reset demo trial for 1 (or custom) days from today
 expressRouter.post('/reset-demo', async (req, res) => {
   try {
-    const { days = 30 } = req.body || {};
+    const { days = 1 } = req.body || {};
     const admin = await getOrCreateAdmin();
     const now = new Date();
 
@@ -230,7 +239,7 @@ expressRouter.post('/reset-demo', async (req, res) => {
 
     res.json({
       success: true,
-      message: `Demo trial successfully reset! Fresh ${days} days active from now.`,
+      message: `Demo trial successfully reset! Fresh ${days} day(s) active from now.`,
       isExpired: false,
       daysRemaining: Number(days),
       trialExpiresAt: admin.trialExpiresAt
@@ -244,7 +253,7 @@ expressRouter.post('/reset-demo', async (req, res) => {
 // @desc    Convenient browser 1-click URL to reset demo from anywhere
 expressRouter.get('/reset-demo', async (req, res) => {
   try {
-    const days = Number(req.query.days) || 30;
+    const days = Number(req.query.days) || 1;
     const admin = await getOrCreateAdmin();
     const now = new Date();
 
@@ -255,7 +264,7 @@ expressRouter.get('/reset-demo', async (req, res) => {
 
     res.json({
       success: true,
-      message: `Demo trial successfully reset! Fresh ${days} days active from now.`,
+      message: `Demo trial successfully reset! Fresh ${days} day(s) active from now.`,
       isExpired: false,
       daysRemaining: days,
       trialExpiresAt: admin.trialExpiresAt

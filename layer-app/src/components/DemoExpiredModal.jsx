@@ -64,7 +64,7 @@ export default function DemoExpiredModal({
             <Ionicons name="time-outline" size={48} color="#D97706" />
           </View>
 
-          <Text style={styles.title}>30-Day Demo Concluded</Text>
+          <Text style={styles.title}>Demo Period Concluded</Text>
           <Text style={styles.subtitle}>
             Your evaluation demo period has ended. To continue managing your cases and hearings, please contact the administrator for an extension or upgrade.
           </Text>
