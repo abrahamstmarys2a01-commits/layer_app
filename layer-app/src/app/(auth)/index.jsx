@@ -19,12 +19,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL, fastFetch } from '../../constants/api';
+import DemoExpiredModal from '../../components/DemoExpiredModal';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showExpiredModal, setShowExpiredModal] = useState(false);
+  const [supportPhone, setSupportPhone] = useState('+91 98765 43210');
+  const [supportWhatsApp, setSupportWhatsApp] = useState('+919876543210');
 
   const handleLogin = async () => {
     if (!username.trim() || !password) {
@@ -45,6 +49,13 @@ export default function LoginScreen() {
       );
 
       const data = await response.json();
+
+      if (data?.isExpired) {
+        if (data.supportPhone) setSupportPhone(data.supportPhone);
+        if (data.supportWhatsApp) setSupportWhatsApp(data.supportWhatsApp);
+        setShowExpiredModal(true);
+        return;
+      }
 
       if (response.ok && data.success) {
         if (data.role === 'junior') {
@@ -68,6 +79,9 @@ export default function LoginScreen() {
           }
           if (data.admin?.theme) {
             await AsyncStorage.setItem('@app_theme', data.admin.theme);
+          }
+          if (data.daysRemaining !== undefined) {
+            await AsyncStorage.setItem('@demo_days_left', String(data.daysRemaining));
           }
           router.replace('/(admin)/dashboard');
         }
@@ -280,6 +294,16 @@ export default function LoginScreen() {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
+
+        <DemoExpiredModal
+          visible={showExpiredModal}
+          onUnlocked={() => {
+            setShowExpiredModal(false);
+            Alert.alert('Unlocked', 'Demo is active now! Please enter your password to login.');
+          }}
+          supportPhone={supportPhone}
+          supportWhatsApp={supportWhatsApp}
+        />
       </SafeAreaView>
     </ImageBackground>
   );

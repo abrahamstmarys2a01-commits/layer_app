@@ -34,10 +34,41 @@ expressRouter.post('/login', async (req, res) => {
     // 1. Check if Admin
     if (admin.username.toLowerCase() === trimmedUser.toLowerCase()) {
       if (admin.password === password) {
+        const now = new Date();
+
+        // If first login or uninitialized, start 30-day demo countdown from today
+        if (admin.isFirstLogin || !admin.trialExpiresAt) {
+          admin.trialStartDate = now;
+          admin.trialExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+          admin.isFirstLogin = false;
+          await admin.save();
+        }
+
+        // Check if demo period has expired
+        const isExpired = now > new Date(admin.trialExpiresAt);
+        const msLeft = new Date(admin.trialExpiresAt) - now;
+        const daysRemaining = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+
+        if (isExpired) {
+          return res.status(403).json({
+            success: false,
+            isExpired: true,
+            message: 'Your 30-day demo period has ended. Please contact support.',
+            trialExpiresAt: admin.trialExpiresAt,
+            supportPhone: admin.supportPhone || '+91 98765 43210',
+            supportWhatsApp: admin.supportWhatsApp || '+919876543210'
+          });
+        }
+
         return res.json({
           success: true,
           role: 'admin',
           message: 'Admin login successful',
+          isExpired: false,
+          daysRemaining,
+          trialExpiresAt: admin.trialExpiresAt,
+          supportPhone: admin.supportPhone || '+91 98765 43210',
+          supportWhatsApp: admin.supportWhatsApp || '+919876543210',
           admin: {
             name: admin.name,
             username: admin.username,
@@ -145,6 +176,92 @@ expressRouter.post('/change-password', async (req, res) => {
   } catch (error) {
     console.error('Error changing password:', error);
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+  }
+});
+
+// @route   GET /api/admin/demo-status
+// @desc    Check demo trial status and days remaining
+expressRouter.get('/demo-status', async (req, res) => {
+  try {
+    const admin = await getOrCreateAdmin();
+    const now = new Date();
+
+    if (!admin.trialExpiresAt) {
+      return res.json({
+        success: true,
+        isExpired: false,
+        daysRemaining: 30,
+        trialExpiresAt: null,
+        supportPhone: admin.supportPhone || '+91 98765 43210',
+        supportWhatsApp: admin.supportWhatsApp || '+919876543210'
+      });
+    }
+
+    const isExpired = now > new Date(admin.trialExpiresAt);
+    const msLeft = new Date(admin.trialExpiresAt) - now;
+    const daysRemaining = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+
+    res.json({
+      success: true,
+      isExpired,
+      daysRemaining,
+      trialStartDate: admin.trialStartDate,
+      trialExpiresAt: admin.trialExpiresAt,
+      supportPhone: admin.supportPhone || '+91 98765 43210',
+      supportWhatsApp: admin.supportWhatsApp || '+919876543210'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   POST /api/admin/reset-demo
+// @desc    Reset demo trial for another 30 (or custom) days from today
+expressRouter.post('/reset-demo', async (req, res) => {
+  try {
+    const { days = 30 } = req.body || {};
+    const admin = await getOrCreateAdmin();
+    const now = new Date();
+
+    admin.trialStartDate = now;
+    admin.trialExpiresAt = new Date(now.getTime() + Number(days) * 24 * 60 * 60 * 1000);
+    admin.isFirstLogin = false;
+    await admin.save();
+
+    res.json({
+      success: true,
+      message: `Demo trial successfully reset! Fresh ${days} days active from now.`,
+      isExpired: false,
+      daysRemaining: Number(days),
+      trialExpiresAt: admin.trialExpiresAt
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/reset-demo
+// @desc    Convenient browser 1-click URL to reset demo from anywhere
+expressRouter.get('/reset-demo', async (req, res) => {
+  try {
+    const days = Number(req.query.days) || 30;
+    const admin = await getOrCreateAdmin();
+    const now = new Date();
+
+    admin.trialStartDate = now;
+    admin.trialExpiresAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+    admin.isFirstLogin = false;
+    await admin.save();
+
+    res.json({
+      success: true,
+      message: `Demo trial successfully reset! Fresh ${days} days active from now.`,
+      isExpired: false,
+      daysRemaining: days,
+      trialExpiresAt: admin.trialExpiresAt
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

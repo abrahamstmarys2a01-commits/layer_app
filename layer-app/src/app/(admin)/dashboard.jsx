@@ -20,6 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { API_BASE_URL, fastFetch } from '../../constants/api';
+import DemoExpiredModal from '../../components/DemoExpiredModal';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -29,6 +30,12 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState(null);
+
+  // Demo Trial State
+  const [demoDaysLeft, setDemoDaysLeft] = useState(30);
+  const [showDemoExpired, setShowDemoExpired] = useState(false);
+  const [supportPhone, setSupportPhone] = useState('+91 98765 43210');
+  const [supportWhatsApp, setSupportWhatsApp] = useState('+919876543210');
 
   // Admin Case Closure Modal State
   const [showCloseModal, setShowCloseModal] = useState(false);
@@ -94,41 +101,60 @@ export default function AdminDashboard() {
       const storedPhoto = await AsyncStorage.getItem('profilePhotoUrl');
       if (storedPhoto) setProfilePhoto(storedPhoto);
 
-      // Fetch juniors and cases using fastFetch & API_BASE_URL
-      const [juniorsRes, casesRes] = await Promise.all([
+      // Fetch juniors, cases, and demo status using fastFetch & API_BASE_URL
+      const [juniorsRes, casesRes, demoRes] = await Promise.all([
         fastFetch(`${API_BASE_URL}/api/juniors`),
         fastFetch(`${API_BASE_URL}/api/cases`),
+        fastFetch(`${API_BASE_URL}/api/admin/demo-status`, {}, 6000).catch(() => null),
       ]);
 
-      const juniorsData = await juniorsRes.json();
-      if (Array.isArray(juniorsData)) {
-        const seen = new Set();
-        const uniqueJuniors = [];
-        for (const j of juniorsData) {
-          const key = (j.username || j.juniorName || j.email || j._id || '').trim().toLowerCase();
-          if (key && !seen.has(key)) {
-            seen.add(key);
-            uniqueJuniors.push(j);
+      if (demoRes && demoRes.ok) {
+        try {
+          const demoData = await demoRes.json();
+          if (demoData.success) {
+            setDemoDaysLeft(demoData.daysRemaining);
+            if (demoData.supportPhone) setSupportPhone(demoData.supportPhone);
+            if (demoData.supportWhatsApp) setSupportWhatsApp(demoData.supportWhatsApp);
+            if (demoData.isExpired) {
+              setShowDemoExpired(true);
+            }
           }
-        }
-        setJuniors(uniqueJuniors);
+        } catch (e) {}
       }
 
-      const casesData = await casesRes.json();
-      if (Array.isArray(casesData)) {
-        const seen = new Set();
-        const uniqueCases = [];
-        for (const c of casesData) {
-          const key = (c.caseNumber || c._id || '').trim().toUpperCase().replace(/\s+/g, '');
-          if (key && !seen.has(key)) {
-            seen.add(key);
-            uniqueCases.push(c);
+      try {
+        const juniorsData = await juniorsRes.json();
+        if (Array.isArray(juniorsData)) {
+          const seen = new Set();
+          const uniqueJuniors = [];
+          for (const j of juniorsData) {
+            const key = (j.username || j.juniorName || j.email || j._id || '').trim().toLowerCase();
+            if (key && !seen.has(key)) {
+              seen.add(key);
+              uniqueJuniors.push(j);
+            }
           }
+          setJuniors(uniqueJuniors);
         }
-        setCases(uniqueCases);
-      }
+      } catch (e) {}
+
+      try {
+        const casesData = await casesRes.json();
+        if (Array.isArray(casesData)) {
+          const seen = new Set();
+          const uniqueCases = [];
+          for (const c of casesData) {
+            const key = (c.caseNumber || c._id || '').trim().toUpperCase().replace(/\s+/g, '');
+            if (key && !seen.has(key)) {
+              seen.add(key);
+              uniqueCases.push(c);
+            }
+          }
+          setCases(uniqueCases);
+        }
+      } catch (e) {}
     } catch (e) {
-      console.error('Error fetching admin dashboard data:', e);
+      console.warn('Warning fetching admin dashboard data:', e.message || e);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -276,6 +302,10 @@ export default function AdminDashboard() {
                 <Ionicons name="shield-checkmark" size={13} color="#0284C7" style={{ marginRight: 4 }} />
                 <Text style={styles.dashboardBadgeText}>Admin Dashboard</Text>
               </View>
+              <View style={styles.demoBadge}>
+                <Ionicons name="hourglass-outline" size={12} color="#B45309" style={{ marginRight: 4 }} />
+                <Text style={styles.demoBadgeText}>{demoDaysLeft}d Demo</Text>
+              </View>
             </View>
             <Text style={styles.welcomeTitle} numberOfLines={1}>
               Welcome, {adminName} 
@@ -324,7 +354,7 @@ export default function AdminDashboard() {
               <Text style={styles.statLabel}>Total Cases</Text>
               <Ionicons name="folder-outline" size={18} color="#64748B" />
             </View>
-            <Text style={styles.statValue}>{cases.length || 48}</Text>
+            <Text style={styles.statValue}>{cases.length}</Text>
             <Text style={styles.statSubtext}>
               {activeCasesCount} Active • {closedCasesCount} Closed
             </Text>
@@ -339,7 +369,7 @@ export default function AdminDashboard() {
               <Text style={styles.statLabel}>Active Roster</Text>
               <Ionicons name="people-outline" size={18} color="#64748B" />
             </View>
-            <Text style={styles.statValue}>{juniors.length || 8}</Text>
+            <Text style={styles.statValue}>{juniors.length}</Text>
             <Text style={styles.statSubtext}>Juniors • 100% On-duty</Text>
           </TouchableOpacity>
 
@@ -354,7 +384,7 @@ export default function AdminDashboard() {
                 <Ionicons name="hammer" size={14} color="#D97706" />
               </View>
             </View>
-            <Text style={styles.statValue}>{todayHearingsCount || 7}</Text>
+            <Text style={styles.statValue}>{todayHearingsCount}</Text>
             <Text style={styles.statSubtext}>Scheduled Proceedings</Text>
           </TouchableOpacity>
 
@@ -367,7 +397,7 @@ export default function AdminDashboard() {
               <Text style={styles.statLabel}>Active Cases</Text>
               <Ionicons name="time-outline" size={18} color="#64748B" />
             </View>
-            <Text style={styles.statValue}>{activeCasesCount || 34}</Text>
+            <Text style={styles.statValue}>{activeCasesCount}</Text>
             <Text style={[styles.statSubtext, { color: '#059669' }]}>In Progress</Text>
           </TouchableOpacity>
         </View>
@@ -702,6 +732,17 @@ export default function AdminDashboard() {
           </View>
         </View>
       </Modal>
+
+      {/* Demo Expired Lockout Modal */}
+      <DemoExpiredModal
+        visible={showDemoExpired}
+        onUnlocked={() => {
+          setShowDemoExpired(false);
+          fetchDashboardData();
+        }}
+        supportPhone={supportPhone}
+        supportWhatsApp={supportWhatsApp}
+      />
     </SafeAreaView>
   );
 }
@@ -728,6 +769,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
+    gap: 8,
   },
   dashboardBadge: {
     flexDirection: 'row',
@@ -742,6 +784,21 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
     color: '#0284C7',
+    letterSpacing: 0.3,
+  },
+  demoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  demoBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#B45309',
     letterSpacing: 0.3,
   },
   welcomeTitle: {
