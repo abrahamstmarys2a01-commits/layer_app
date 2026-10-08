@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   TextInput,
@@ -13,12 +12,17 @@ import {
   Modal,
   Platform,
   StatusBar,
+  Alert,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../context/ThemeContext';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { API_BASE_URL, fastFetch } from '../../constants/api';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function JuniorDashboard() {
   const router = useRouter();
@@ -40,6 +44,7 @@ export default function JuniorDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('ALL'); // ALL, ACTIVE, UPCOMING, CLOSED
   const [viewMode, setViewMode] = useState('TABLE'); // Default TABLE as requested ('TABLE' or 'CARD')
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Open case details
   const openCaseDetails = (item) => {
@@ -155,6 +160,12 @@ export default function JuniorDashboard() {
 
   useFocusEffect(
     useCallback(() => {
+      StatusBar.setBarStyle('light-content', true);
+      if (Platform.OS === 'android') {
+        StatusBar.setBackgroundColor('transparent', true);
+        StatusBar.setTranslucent(true);
+      }
+
       loadJuniorInfo().then(async (name) => {
         try {
           const cached = await AsyncStorage.getItem(`@cached_junior_cases_${name}`);
@@ -168,12 +179,40 @@ export default function JuniorDashboard() {
         } catch (e) {}
         fetchAssignedCases(name);
       });
+
+      return () => {
+        StatusBar.setBarStyle('dark-content', true);
+        if (Platform.OS === 'android') {
+          StatusBar.setBackgroundColor('#FFFFFF', true);
+          StatusBar.setTranslucent(false);
+        }
+      };
     }, [])
   );
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchAssignedCases();
+  };
+
+  const handleNavigate = (path) => {
+    setDrawerOpen(false);
+    router.push(path);
+  };
+
+  const handleLogout = () => {
+    setDrawerOpen(false);
+    Alert.alert('Logout Confirmation', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          await AsyncStorage.clear();
+          router.replace('/(auth)');
+        },
+      },
+    ]);
   };
 
   const filteredCases = cases.filter((item) => {
@@ -208,6 +247,13 @@ export default function JuniorDashboard() {
     return true;
   });
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 4 && hour < 12) return 'Good Morning,';
+    if (hour >= 12 && hour < 17) return 'Good Afternoon,';
+    return 'Good Evening,';
+  };
+
   const getStatusBadgeStyle = (status) => {
     const s = (status || 'Active').toLowerCase();
     if (s === 'active') {
@@ -220,62 +266,100 @@ export default function JuniorDashboard() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+    <View style={styles.rootContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+
+      {/* Top Full Gradient Green Header matching Admin Dashboard */}
+      <LinearGradient
+        colors={['#043D2E', '#065F38', '#0A7B48']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerBar}
+      >
+        <TouchableOpacity
+          style={styles.headerIconBtn}
+          onPress={() => setDrawerOpen(true)}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="menu-outline" size={27} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <View style={styles.headerLogoContainer}>
+          <Image
+            source={require('../../../assets/images/justice_scales_logo.jpg')}
+            style={styles.logoBadgeImg}
+            resizeMode="cover"
+          />
+          <Text style={styles.headerTitle}>Vakil Grid</Text>
+        </View>
+
+        {/* Right Header: Notification & Avatar */}
+        <View style={styles.headerRightRow}>
+          <TouchableOpacity
+            style={styles.headerIconBtn}
+            onPress={() => Alert.alert('Notifications', 'You have no new urgent alerts.')}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <View>
+              <Ionicons name="notifications-outline" size={23} color="#FFFFFF" />
+              <View style={styles.notificationDot} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.headerAvatarBtn}
+            onPress={() => router.push('/(junior)/profile')}
+            activeOpacity={0.8}
+          >
+            {juniorInfo.photoUrl ? (
+              <Image source={{ uri: juniorInfo.photoUrl }} style={styles.headerAvatarImg} />
+            ) : (
+              <View style={styles.headerAvatarPlaceholder}>
+                <Ionicons name="person" size={16} color="#064E3B" />
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
       <ScrollView
-        style={styles.container}
+        style={[styles.container, { backgroundColor: isDark ? colors.background : '#F8FAFC' }]}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#0D6E42']}
+            colors={['#064E3B']}
           />
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Header */}
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <View style={styles.badgeRow}>
-              <View style={[styles.dashboardBadge, { backgroundColor: isDark ? '#1E293B' : '#E0F2FE' }]}>
-                <Ionicons name="shield-checkmark" size={13} color="#0284C7" style={{ marginRight: 4 }} />
-                <Text style={[styles.dashboardBadgeText, { color: '#0284C7' }]}>Junior Dashboard</Text>
-              </View>
+        {/* Welcome / Greeting Banner (Flat clean layout directly on screen, no card box wrapper) */}
+        <View style={styles.greetingSection}>
+          <View style={styles.greetingLeft}>
+            <Text style={styles.greetingSub}>{getGreeting()}</Text>
+            <Text style={[styles.greetingName, { color: isDark ? colors.text : '#0F172A' }]} numberOfLines={1}>
+              {juniorInfo.juniorName || 'Arun'}
+            </Text>
+            <Text style={styles.greetingRole}>Junior Lawyer</Text>
+
+            <View style={styles.quoteBox}>
+              <View style={styles.quoteBar} />
+              <Text style={styles.quoteText}>
+                "Small steps everyday,{"\n"}lead to big results."
+              </Text>
             </View>
-            <Text style={[styles.welcomeTitle, { color: colors.text }]} numberOfLines={1}>
-              Welcome, {juniorInfo.juniorName || 'Arun'} 
-            </Text>
-            <Text style={[styles.welcomeSubtitle, { color: colors.textSecondary }]}>
-              Assigned Legal Cases & Hearings Console
-            </Text>
           </View>
-          <TouchableOpacity
-            style={styles.avatarButtonWrapper}
-            onPress={() => router.push('/(junior)/profile')}
-            activeOpacity={0.8}
-          >
-            {juniorInfo.photoUrl ? (
-              <Image
-                source={{ uri: juniorInfo.photoUrl }}
-                style={styles.juniorProfilePhoto}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={[styles.avatarCircle, { backgroundColor: isDark ? '#1E293B' : '#DCFCE7' }]}>
-                <Image
-                  source={{
-                    uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                      juniorInfo.juniorName || 'Arun'
-                    )}&background=0D6E42&color=ffffff&bold=true&size=128`,
-                  }}
-                  style={styles.juniorProfilePhoto}
-                  resizeMode="cover"
-                />
-              </View>
-            )}
-            <View style={styles.onlineBadgeDot} />
-          </TouchableOpacity>
+
+          <View style={styles.greetingIllustrationWrapper}>
+            <Image
+              source={require('../../../assets/images/law_scales_books.jpg')}
+              style={styles.greetingLawImage}
+              resizeMode="cover"
+            />
+          </View>
         </View>
 
         {/* Section: My Cases Summary Statistics Cards */}
@@ -394,110 +478,136 @@ export default function JuniorDashboard() {
             )}
           </View>
 
-          {/* Content: Table or Card View */}
+          {/* Filter Pills */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterPillsRow}
+          >
+            {[
+              { label: 'All Cases', key: 'ALL', count: stats.totalCases },
+              { label: 'Active', key: 'ACTIVE', count: stats.activeCases },
+              { label: 'Upcoming', key: 'UPCOMING', count: stats.upcomingHearings },
+              { label: 'Closed', key: 'CLOSED', count: stats.closedCases },
+            ].map((f) => {
+              const isSel = selectedFilter === f.key;
+              return (
+                <TouchableOpacity
+                  key={f.key}
+                  style={[
+                    styles.filterPill,
+                    {
+                      backgroundColor: isSel
+                        ? '#0D6E42'
+                        : isDark
+                        ? colors.card
+                        : '#FFFFFF',
+                      borderColor: isSel ? '#0D6E42' : (isDark ? colors.border : '#E2E8F0'),
+                    },
+                  ]}
+                  onPress={() => setSelectedFilter(f.key)}
+                >
+                  <Text
+                    style={[
+                      styles.filterPillText,
+                      { color: isSel ? '#FFFFFF' : colors.textSecondary },
+                    ]}
+                  >
+                    {f.label} ({f.count})
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          {/* Cases Content: Table or Cards */}
           {loading ? (
-            <View style={{ padding: 40, alignItems: 'center' }}>
+            <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#0D6E42" />
-              <Text style={{ marginTop: 12, color: colors.textSecondary, fontSize: 13 }}>
-                Loading your assigned cases...
-              </Text>
+              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading assigned cases...</Text>
             </View>
           ) : filteredCases.length === 0 ? (
-            <View style={[styles.emptyBox, { borderColor: colors.border, backgroundColor: colors.card }]}>
+            <View style={[styles.emptyContainer, { backgroundColor: isDark ? colors.card : '#FFFFFF', borderColor: colors.border }]}>
               <Ionicons name="folder-open-outline" size={44} color="#94A3B8" />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>No Assigned Cases</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>No Cases Found</Text>
               <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
                 {searchQuery
-                  ? 'No assigned cases match your search.'
-                  : `No cases have been assigned to ${juniorInfo.juniorName} yet.`}
+                  ? 'No cases match your search query.'
+                  : 'You have no assigned cases under this filter.'}
               </Text>
             </View>
           ) : viewMode === 'TABLE' ? (
-            /* Clean Full Table View */
+            /* TABLE VIEW */
             <View style={[styles.tableCardWrapper, { backgroundColor: isDark ? colors.card : '#FFFFFF', borderColor: colors.border }]}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-                <View style={{ minWidth: 600 }}>
-                  {/* Table Header */}
-                  <View style={[styles.tableHeaderRow, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', borderBottomColor: colors.border }]}>
-                    <Text style={[styles.thText, { width: 140, color: colors.textSecondary }]}>CASE NO</Text>
-                    <Text style={[styles.thText, { width: 120, color: colors.textSecondary }]}>CLIENT</Text>
-                    <Text style={[styles.thText, { width: 150, color: colors.textSecondary }]}>COURT</Text>
-                    <Text style={[styles.thText, { width: 110, color: colors.textSecondary }]}>HEARING</Text>
-                    <Text style={[styles.thText, { width: 80, textAlign: 'center', color: colors.textSecondary }]}>STATUS</Text>
-                  </View>
+              {/* Table Header */}
+              <View style={[styles.tableHeaderRow, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', borderBottomColor: colors.border }]}>
+                <Text style={[styles.tableHeaderCell, { flex: 1.1 }]}>CASE NO / CLIENT</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 0.9 }]}>COURT</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>HEARING</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 0.7, textAlign: 'right' }]}>STATUS</Text>
+              </View>
 
-                  {/* Table Rows */}
-                  {filteredCases.map((item, index) => {
-                    const badgeStyle = getStatusBadgeStyle(item.status);
-                    return (
-                      <TouchableOpacity
-                        key={item._id || index}
-                        style={[
-                          styles.tableRow,
-                          {
-                            borderTopColor: colors.border,
-                            borderTopWidth: index === 0 ? 0 : 1,
-                            backgroundColor: isDark
-                              ? (index % 2 === 0 ? colors.card : '#1E293B55')
-                              : (index % 2 === 0 ? '#FFFFFF' : '#FAFAFA'),
-                          },
-                        ]}
-                        onPress={() => openCaseDetails(item)}
-                        activeOpacity={0.7}
-                      >
-                        {/* Case No */}
-                        <View style={{ width: 140, paddingRight: 8 }}>
-                          <Text style={[styles.tdCaseNo, { color: '#0D6E42' }]} numberOfLines={1}>
-                            {item.caseNumber || 'N/A'}
-                          </Text>
-                          <Text style={[styles.tdSubText, { color: colors.textSecondary }]} numberOfLines={1}>
-                            {item.caseType || 'Matter'}
-                          </Text>
-                        </View>
-
-                        {/* Client */}
-                        <View style={{ width: 120, paddingRight: 8 }}>
-                          <Text style={[styles.tdText, { color: colors.text, fontWeight: '600' }]} numberOfLines={1}>
-                            {item.clientName || '-'}
-                          </Text>
-                        </View>
-
-                        {/* Court */}
-                        <View style={{ width: 150, paddingRight: 8 }}>
-                          <Text style={[styles.tdText, { color: colors.text }]} numberOfLines={1}>
-                            {item.courtName || '-'}
-                          </Text>
-                        </View>
-
-                        {/* Hearing */}
-                        <View style={{ width: 110, paddingRight: 8 }}>
-                          <Text style={[styles.tdHearingText, { color: '#2563EB', fontWeight: '700' }]} numberOfLines={1}>
-                            {item.nextHearing || '-'}
-                          </Text>
-                        </View>
-
-                        {/* Status */}
-                        <View style={{ width: 80, alignItems: 'center' }}>
-                          <View style={[styles.statusBadge, { backgroundColor: badgeStyle.bg }]}>
-                            <Text style={[styles.statusBadgeText, { color: badgeStyle.text }]}>
-                              {item.status || 'Active'}
-                            </Text>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </ScrollView>
-            </View>
-          ) : (
-            /* Card View */
-            <View style={styles.cardListContainer}>
+              {/* Table Body Rows */}
               {filteredCases.map((item, index) => {
                 const badgeStyle = getStatusBadgeStyle(item.status);
+                const isLast = index === filteredCases.length - 1;
+
                 return (
                   <TouchableOpacity
-                    key={item._id || index}
+                    key={item._id || item.caseNumber || index}
+                    style={[
+                      styles.tableRow,
+                      { borderBottomColor: isDark ? '#1E293B' : '#F1F5F9' },
+                      isLast && { borderBottomWidth: 0 },
+                    ]}
+                    onPress={() => openCaseDetails(item)}
+                    activeOpacity={0.7}
+                  >
+                    {/* Case No & Client */}
+                    <View style={{ flex: 1.1, paddingRight: 4 }}>
+                      <Text style={[styles.tableCaseNo, { color: '#0D6E42' }]} numberOfLines={1}>
+                        {item.caseNumber || 'N/A'}
+                      </Text>
+                      <Text style={[styles.tableClientName, { color: colors.text }]} numberOfLines={1}>
+                        {item.clientName || 'Client'}
+                      </Text>
+                    </View>
+
+                    {/* Court */}
+                    <View style={{ flex: 0.9, paddingRight: 4 }}>
+                      <Text style={[styles.tableCourtText, { color: colors.textSecondary }]} numberOfLines={2}>
+                        {item.courtName || '-'}
+                      </Text>
+                    </View>
+
+                    {/* Hearing Date */}
+                    <View style={{ flex: 0.8, paddingRight: 4 }}>
+                      <Text style={[styles.tableHearingDate, { color: colors.text }]} numberOfLines={1}>
+                        {item.nextHearing || '-'}
+                      </Text>
+                    </View>
+
+                    {/* Status Badge */}
+                    <View style={{ flex: 0.7, alignItems: 'flex-end' }}>
+                      <View style={[styles.statusBadgeSmall, { backgroundColor: badgeStyle.bg }]}>
+                        <Text style={[styles.statusBadgeSmallText, { color: badgeStyle.text }]} numberOfLines={1}>
+                          {item.status || 'Active'}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : (
+            /* CARD VIEW */
+            <View style={styles.cardsGrid}>
+              {filteredCases.map((item, index) => {
+                const badgeStyle = getStatusBadgeStyle(item.status);
+
+                return (
+                  <TouchableOpacity
+                    key={item._id || item.caseNumber || index}
                     style={[
                       styles.caseCard,
                       { backgroundColor: isDark ? colors.card : '#FFFFFF', borderColor: colors.border },
@@ -505,48 +615,35 @@ export default function JuniorDashboard() {
                     onPress={() => openCaseDetails(item)}
                     activeOpacity={0.8}
                   >
-                    <View style={styles.caseCardTopRow}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
-                        <View style={styles.caseCardIconCircle}>
-                          <Ionicons name="document-text" size={16} color="#0D6E42" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.caseCardNum, { color: '#0D6E42' }]} numberOfLines={1}>
-                            {item.caseNumber}
-                          </Text>
-                          <Text style={[styles.caseCardType, { color: colors.textSecondary }]} numberOfLines={1}>
-                            {item.caseType || 'General Civil'}
-                          </Text>
-                        </View>
+                    <View style={styles.caseCardHeader}>
+                      <View style={styles.caseNumberBox}>
+                        <Ionicons name="document-text" size={15} color="#0D6E42" style={{ marginRight: 5 }} />
+                        <Text style={styles.caseNumberText} numberOfLines={1}>
+                          {item.caseNumber || 'N/A'}
+                        </Text>
                       </View>
-
-                      <View style={[styles.statusBadge, { backgroundColor: badgeStyle.bg }]}>
-                        <Text style={[styles.statusBadgeText, { color: badgeStyle.text }]}>
+                      <View style={[styles.statusBadgeSmall, { backgroundColor: badgeStyle.bg }]}>
+                        <Text style={[styles.statusBadgeSmallText, { color: badgeStyle.text }]}>
                           {item.status || 'Active'}
                         </Text>
                       </View>
                     </View>
 
-                    <View style={[styles.caseCardBody, { borderTopColor: colors.border, borderBottomColor: colors.border }]}>
-                      <View style={styles.caseInfoCol}>
-                        <Text style={[styles.caseInfoLabel, { color: colors.textSecondary }]}>CLIENT</Text>
-                        <Text style={[styles.caseInfoValue, { color: colors.text }]} numberOfLines={1}>
-                          👤 {item.clientName || 'Client'}
-                        </Text>
-                      </View>
+                    <Text style={[styles.caseCardClient, { color: colors.text }]} numberOfLines={1}>
+                      {item.clientName || 'Unnamed Client'}
+                    </Text>
 
-                      <View style={styles.caseInfoCol}>
-                        <Text style={[styles.caseInfoLabel, { color: colors.textSecondary }]}>COURT</Text>
-                        <Text style={[styles.caseInfoValue, { color: colors.text }]} numberOfLines={1}>
-                          🏛️ {item.courtName || 'District Court'}
-                        </Text>
-                      </View>
+                    <View style={styles.caseCardMetaRow}>
+                      <Ionicons name="business-outline" size={13} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                      <Text style={[styles.caseCardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {item.courtName || 'Court Not Specified'}
+                      </Text>
                     </View>
 
                     <View style={styles.caseCardFooter}>
-                      <View style={styles.hearingPill}>
-                        <Ionicons name="calendar" size={13} color="#2563EB" style={{ marginRight: 5 }} />
-                        <Text style={styles.hearingPillText}>
+                      <View style={styles.caseHearingTag}>
+                        <Ionicons name="calendar-outline" size={13} color="#2563EB" style={{ marginRight: 4 }} />
+                        <Text style={styles.caseHearingText}>
                           Hearing: <Text style={{ fontWeight: '800' }}>{item.nextHearing || '-'}</Text>
                         </Text>
                       </View>
@@ -565,95 +662,280 @@ export default function JuniorDashboard() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
-    </SafeAreaView>
+
+      {/* 🌟 Sidebar Navigation Drawer Modal */}
+      <Modal
+        visible={drawerOpen}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setDrawerOpen(false)}
+      >
+        <View style={styles.drawerOverlay}>
+          <TouchableOpacity
+            style={styles.drawerBackdrop}
+            activeOpacity={1}
+            onPress={() => setDrawerOpen(false)}
+          />
+          <View style={styles.drawerContainer}>
+            {/* Drawer Header */}
+            <LinearGradient
+              colors={['#043D2E', '#065F38', '#0A7B48']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.drawerHeader}
+            >
+              <View style={styles.drawerUserRow}>
+                <View style={styles.drawerAvatar}>
+                  {juniorInfo.photoUrl ? (
+                    <Image source={{ uri: juniorInfo.photoUrl }} style={{ width: '100%', height: '100%' }} />
+                  ) : (
+                    <Ionicons name="person" size={26} color="#064E3B" />
+                  )}
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.drawerUserName} numberOfLines={1}>
+                    {juniorInfo.juniorName || 'Arun'}
+                  </Text>
+                  <Text style={styles.drawerUserRole}>Junior Lawyer</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setDrawerOpen(false)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+
+            {/* Drawer Navigation List */}
+            <ScrollView style={styles.drawerNavList} showsVerticalScrollIndicator={false}>
+              <Text style={styles.drawerSectionLabel}>MAIN MENU</Text>
+
+              {/* 1. Dashboard / Cases */}
+              <TouchableOpacity
+                style={[styles.drawerItem, styles.drawerItemActive]}
+                onPress={() => setDrawerOpen(false)}
+              >
+                <Ionicons name="folder-open" size={20} color="#064E3B" style={styles.drawerItemIcon} />
+                <Text style={[styles.drawerItemText, styles.drawerItemTextActive]}>My Cases</Text>
+              </TouchableOpacity>
+
+              {/* 2. Amount Entry */}
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => handleNavigate('/(junior)/amount-entry')}
+              >
+                <Ionicons name="wallet-outline" size={20} color="#334155" style={styles.drawerItemIcon} />
+                <Text style={styles.drawerItemText}>Amount Entry</Text>
+              </TouchableOpacity>
+
+              {/* 3. Hearing Schedule */}
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => handleNavigate('/(junior)/schedule')}
+              >
+                <Ionicons name="calendar-outline" size={20} color="#334155" style={styles.drawerItemIcon} />
+                <Text style={styles.drawerItemText}>Hearing Schedule</Text>
+              </TouchableOpacity>
+
+              <View style={styles.drawerDivider} />
+              <Text style={styles.drawerSectionLabel}>ACCOUNT & ACTIONS</Text>
+
+              {/* Settings / Profile */}
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => handleNavigate('/(junior)/profile')}
+              >
+                <Ionicons name="person-circle-outline" size={20} color="#334155" style={styles.drawerItemIcon} />
+                <Text style={styles.drawerItemText}>Profile & Settings</Text>
+              </TouchableOpacity>
+
+              {/* Logout */}
+              <TouchableOpacity
+                style={[styles.drawerItem, { marginTop: 12 }]}
+                onPress={handleLogout}
+              >
+                <Ionicons name="log-out-outline" size={20} color="#DC2626" style={styles.drawerItemIcon} />
+                <Text style={[styles.drawerItemText, { color: '#DC2626', fontWeight: '700' }]}>Logout</Text>
+              </TouchableOpacity>
+            </ScrollView>
+
+            {/* Drawer Footer */}
+            <View style={styles.drawerFooter}>
+              <Text style={styles.drawerFooterText}>Vakil Grid Chamber Management v1.0</Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  rootContainer: {
     flex: 1,
+    backgroundColor: '#043D2E',
+  },
+  headerBar: {
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 8 : 14,
+    paddingBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerLogoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoBadgeImg: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 9,
+    borderWidth: 1.5,
+    borderColor: '#FDE047',
+  },
+  headerTitle: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: -1,
+    right: -1,
+    width: 8.5,
+    height: 8.5,
+    borderRadius: 4.25,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#064E3B',
+  },
+  headerRightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerAvatarBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1.5,
+    borderColor: '#FDE047',
+    overflow: 'hidden',
+    backgroundColor: '#F0FDF4',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  headerAvatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   container: {
     flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 12 : 16,
-    paddingBottom: 40,
+    paddingTop: 16,
+    paddingBottom: 36,
   },
-  header: {
+  greetingSection: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 18,
+    paddingTop: 4,
+    paddingBottom: 2,
+    paddingHorizontal: 2,
   },
-  badgeRow: {
-    marginBottom: 6,
+  greetingLeft: {
+    flex: 1.15,
+    paddingRight: 8,
   },
-  dashboardBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  dashboardBadgeText: {
-    fontSize: 11.5,
+  greetingSub: {
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.3,
+    color: '#0D6E42',
+    letterSpacing: -0.2,
   },
-  welcomeTitle: {
-    fontSize: 22,
+  greetingName: {
+    fontSize: 23,
     fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 2,
     letterSpacing: -0.3,
   },
-  welcomeSubtitle: {
+  greetingRole: {
     fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+    marginTop: 2,
+    marginBottom: 10,
+  },
+  quoteBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 2,
   },
-  avatarButtonWrapper: {
-    position: 'relative',
+  quoteBar: {
+    width: 3,
+    height: 30,
+    backgroundColor: '#0D6E42',
+    borderRadius: 2,
+    marginRight: 8,
   },
-  juniorProfilePhoto: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: '#0D6E42',
+  quoteText: {
+    fontSize: 11.5,
+    color: '#475569',
+    fontStyle: 'italic',
+    lineHeight: 16,
+    fontWeight: '500',
   },
-  onlineBadgeDot: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 13,
-    height: 13,
-    borderRadius: 7,
-    backgroundColor: '#16A34A',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  avatarCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+  greetingIllustrationWrapper: {
+    width: 120,
+    height: 115,
+    borderRadius: 18,
     overflow: 'hidden',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
+    shadowColor: '#64748B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0D6E42',
+  greetingLawImage: {
+    width: '100%',
+    height: '100%',
   },
   statsSection: {
-    marginBottom: 22,
+    marginBottom: 20,
   },
   statsHeadingRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 10,
   },
   sectionHeading: {
     fontSize: 17,
@@ -666,33 +948,33 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: 8,
   },
   statCard: {
     flex: 1,
-    padding: 12,
     borderRadius: 14,
-    borderWidth: 1.5,
+    padding: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    elevation: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 5,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   statCardActive: {
-    transform: [{ scale: 1.02 }],
+    borderWidth: 1.5,
   },
   statIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   statValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     marginBottom: 2,
   },
@@ -702,12 +984,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   casesListSection: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   casesHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
   },
   sectionTitle: {
@@ -716,17 +998,17 @@ const styles = StyleSheet.create({
   },
   casesSubnote: {
     fontSize: 12,
-    marginTop: 1,
+    marginTop: 2,
   },
   toggleContainer: {
     flexDirection: 'row',
-    borderWidth: 1,
     borderRadius: 8,
+    borderWidth: 1,
     padding: 2,
   },
   toggleBtn: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 6,
   },
   toggleBtnActive: {
@@ -735,78 +1017,167 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.2,
-    borderRadius: 12,
     paddingHorizontal: 12,
     height: 44,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 3,
-    elevation: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
-    height: '100%',
+  },
+  filterPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  filterPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterPillText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   tableCardWrapper: {
     borderRadius: 14,
-    borderWidth: 1.2,
+    borderWidth: 1,
     overflow: 'hidden',
+    elevation: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
   },
   tableHeaderRow: {
     flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1.2,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
   },
-  thText: {
-    fontSize: 11.5,
+  tableHeaderCell: {
+    fontSize: 11,
     fontWeight: '800',
+    color: '#64748B',
     letterSpacing: 0.5,
   },
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
   },
-  tdCaseNo: {
-    fontSize: 13.5,
+  tableCaseNo: {
+    fontSize: 13,
     fontWeight: '800',
   },
-  tdSubText: {
-    fontSize: 11,
-    marginTop: 1,
+  tableClientName: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
   },
-  tdText: {
-    fontSize: 13,
+  tableCourtText: {
+    fontSize: 11.5,
+    fontWeight: '500',
   },
-  tdHearingText: {
-    fontSize: 12.5,
+  tableHearingDate: {
+    fontSize: 12,
+    fontWeight: '600',
   },
-  statusBadge: {
+  statusBadgeSmall: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 6,
   },
-  statusBadgeText: {
-    fontSize: 11,
+  statusBadgeSmallText: {
+    fontSize: 10.5,
     fontWeight: '700',
   },
-  emptyBox: {
-    padding: 36,
+  cardsGrid: {
+    gap: 12,
+  },
+  caseCard: {
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+  },
+  caseCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  caseNumberBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  caseNumberText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0D6E42',
+  },
+  caseCardClient: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  caseCardMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  caseCardMetaText: {
+    fontSize: 12,
+  },
+  caseCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  caseHearingTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  caseHearingText: {
+    fontSize: 11.5,
+    color: '#475569',
+  },
+  viewDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  viewDetailsText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0D6E42',
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 13,
+  },
+  emptyContainer: {
+    padding: 30,
     borderRadius: 14,
     borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyTitle: {
     fontSize: 16,
@@ -817,92 +1188,111 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     marginTop: 4,
-    lineHeight: 18,
   },
-  cardListContainer: {
-    gap: 12,
-  },
-  caseCard: {
-    borderRadius: 14,
-    borderWidth: 1.2,
-    padding: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  caseCardTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  caseCardIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#DCFCE7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  caseCardNum: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  caseCardType: {
-    fontSize: 11.5,
-    marginTop: 1,
-  },
-  caseCardBody: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    marginVertical: 4,
-  },
-  caseInfoCol: {
+
+  // 🌟 Sidebar Drawer Styles
+  drawerOverlay: {
     flex: 1,
-    paddingRight: 6,
+    flexDirection: 'row',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
   },
-  caseInfoLabel: {
-    fontSize: 10,
+  drawerBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  drawerContainer: {
+    width: Math.min(SCREEN_WIDTH * 0.78, 300),
+    backgroundColor: '#FFFFFF',
+    height: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 16,
+  },
+  drawerHeader: {
+    backgroundColor: '#064E3B',
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 12 : 44,
+    paddingBottom: 20,
+    paddingHorizontal: 16,
+  },
+  drawerUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  drawerAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  drawerUserName: {
+    fontSize: 16,
     fontWeight: '700',
-    letterSpacing: 0.5,
-    marginBottom: 2,
+    color: '#FFFFFF',
   },
-  caseInfoValue: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  caseCardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  hearingPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  hearingPillText: {
+  drawerUserRole: {
     fontSize: 12,
-    color: '#1E40AF',
+    color: '#A7F3D0',
+    marginTop: 2,
   },
-  viewDetailsRow: {
+  drawerNavList: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+  },
+  drawerSectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+    marginLeft: 12,
+  },
+  drawerItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 4,
   },
-  viewDetailsText: {
-    fontSize: 12.5,
+  drawerItemActive: {
+    backgroundColor: '#F0FDF4',
+  },
+  drawerItemIcon: {
+    marginRight: 14,
+  },
+  drawerItemText: {
+    fontSize: 14.5,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  drawerItemTextActive: {
+    color: '#064E3B',
     fontWeight: '700',
-    color: '#0D6E42',
-    marginRight: 2,
+  },
+  drawerDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
+    marginHorizontal: 8,
+  },
+  drawerFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    alignItems: 'center',
+  },
+  drawerFooterText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
   },
 });

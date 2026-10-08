@@ -1,14 +1,19 @@
 {
   "expo": {
-    "name": "layer-app",
-    "slug": "layer-app",
+    "name": "Vakil Grid",
+    "slug": "vakil-grid",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/justice_scales_logo.jpg",
-    "scheme": "layerapp",
+    "scheme": "vakilgrid",
     "userInterfaceStyle": "automatic",
+    "androidStatusBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#043D2E",
+      "translucent": false
+    },
     "android": {
-      "package": "com.firm.layerapp",
+      "package": "com.firm.vakilgrid",
       "adaptiveIcon": {
         "backgroundColor": "#0A192F",
         "foregroundImage": "./assets/images/justice_scales_logo.jpg"

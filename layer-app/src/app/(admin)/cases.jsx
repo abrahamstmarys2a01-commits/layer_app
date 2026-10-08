@@ -6,13 +6,14 @@ import {
   TextInput,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   Modal,
   FlatList,
   Platform,
   ActivityIndicator,
   Alert,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
@@ -163,6 +164,12 @@ export default function CasesScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content');
+      if (Platform.OS === 'android') {
+        StatusBar.setBackgroundColor(isDark ? '#0B1120' : '#FFFFFF');
+        StatusBar.setTranslucent(false);
+      }
+
       const fetchJuniors = async () => {
         setLoadingJuniors(true);
         try {
@@ -190,7 +197,7 @@ export default function CasesScreen() {
         }
       };
       fetchJuniors();
-    }, [])
+    }, [isDark])
   );
 
   // Toggle or add preset document
@@ -330,6 +337,7 @@ export default function CasesScreen() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={isDark ? '#0B1120' : '#FFFFFF'} />
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={[styles.pageTitle, { color: colors.text }]}>Case Registration</Text>
@@ -1116,30 +1124,33 @@ export default function CasesScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 2 : 0,
   },
   container: {
     flex: 1,
   },
   scrollContent: {
     padding: 16,
+    paddingTop: 4,
   },
   header: {
-    marginBottom: 20,
+    marginBottom: 12,
+    paddingHorizontal: 2,
   },
   pageTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+    fontSize: 19,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   pageSubtitle: {
-    fontSize: 13,
-    marginTop: 4,
-    lineHeight: 18,
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 16,
   },
   formCard: {
     borderRadius: 16,
     borderWidth: 1,
-    padding: 18,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -1152,13 +1163,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: '700',
     marginLeft: 8,
   },
   sectionSubtitle: {
-    fontSize: 12,
-    marginBottom: 12,
+    fontSize: 11.5,
+    marginBottom: 10,
   },
   inputGroup: {
     marginBottom: 14,

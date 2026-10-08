@@ -3,14 +3,15 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   Platform,
   Modal,
   Alert,
   Switch,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAppTheme } from '../../context/ThemeContext';
@@ -44,6 +45,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={isDark ? '#0B1120' : '#FFFFFF'} />
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
@@ -199,40 +201,40 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    paddingTop: Platform.OS === 'android' ? 36 : 20,
-    paddingBottom: 40,
+    padding: 16,
+    paddingTop: Platform.OS === 'android' ? 24 : 16,
+    paddingBottom: 36,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
-    marginTop: 4,
-    lineHeight: 18,
+    fontSize: 12,
+    marginTop: 3,
+    lineHeight: 16,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 18,
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginBottom: 10,
+    marginBottom: 8,
     marginLeft: 4,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 10,
+    padding: 11,
+    borderRadius: 12,
+    marginBottom: 8,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -241,44 +243,44 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
   menuItemContent: {
     flex: 1,
   },
   menuItemText: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
   },
   menuItemSubtext: {
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 11,
+    marginTop: 1,
   },
   logoutButton: {
     backgroundColor: '#FEF2F2',
     borderColor: '#FCA5A5',
   },
   logoutText: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#EF4444',
   },
   logoutSubtext: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#DC2626',
-    marginTop: 2,
+    marginTop: 1,
   },
   footer: {
-    marginTop: 10,
+    marginTop: 8,
     alignItems: 'center',
   },
   versionText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
   },
   modalOverlay: {
@@ -291,8 +293,8 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '100%',
     maxWidth: 400,
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 18,
+    padding: 18,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -303,39 +305,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
+    marginBottom: 14,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
   },
   notifRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
   },
   notifTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   notifDesc: {
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 11,
+    marginTop: 1,
   },
   saveNotifButton: {
-    marginTop: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
+    marginTop: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
     alignItems: 'center',
   },
   saveNotifButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
   },
 });

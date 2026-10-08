@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Alert,
   ActivityIndicator,
   Platform,
@@ -15,6 +14,7 @@ import {
   ImageBackground,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -140,7 +140,7 @@ export default function LoginScreen() {
   const handleContactAdmin = () => {
     Alert.alert(
       'Support Contact',
-      'For chamber access assistance, email: support@layerapp.firm or call Senior Managing Partner desk.',
+      'For chamber access assistance, email: support@vakilgrid.firm or call Senior Managing Partner desk.',
       [{ text: 'OK' }]
     );
   };
@@ -151,7 +151,7 @@ export default function LoginScreen() {
       style={styles.backgroundImage}
       resizeMode="cover"
     >
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -161,6 +161,9 @@ export default function LoginScreen() {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            scrollEnabled={false}
+            bounces={false}
+            overScrollMode="never"
           >
             {/* Top Brand Emblem & Header */}
             <View style={styles.brandContainer}>
@@ -168,11 +171,16 @@ export default function LoginScreen() {
                 <Image
                   source={require('../../../assets/images/justice_scales_logo.jpg')}
                   style={styles.emblemImage}
-                  resizeMode="contain"
+                  resizeMode="cover"
                 />
               </View>
 
-              <Text style={styles.brandTitle}>Layer App</Text>
+              <Text style={styles.brandTitle}>Vakil Grid</Text>
+
+              {/* Unique Tamil Motto Badge */}
+              <View style={styles.mottoPill}>
+                <Text style={styles.mottoTamilText}>வாய்மையே வெல்லும்</Text>
+              </View>
 
               {/* Tagline with Gold Divider Lines */}
               <View style={styles.taglineRow}>
@@ -210,7 +218,7 @@ export default function LoginScreen() {
               </View>
 
               {/* Password Input Card */}
-              <View style={[styles.inputCard, { marginTop: 14 }]}>
+              <View style={[styles.inputCard, { marginTop: 12 }]}>
                 <View style={styles.iconCircle}>
                   <Ionicons name="lock-closed-outline" size={20} color="#2C4A6F" />
                 </View>
@@ -320,40 +328,66 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 14 : 20,
-    paddingBottom: 150,
+    paddingHorizontal: 22,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 2 : 6,
+    paddingBottom: 16,
     justifyContent: 'flex-start',
   },
   brandContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 6,
   },
   emblemContainer: {
     width: 78,
     height: 78,
     borderRadius: 39,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#C59B27',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 4,
-    marginBottom: 10,
+    marginBottom: 6,
+    borderWidth: 2.5,
+    borderColor: '#CCA765',
+    overflow: 'hidden',
+    shadowColor: '#CCA765',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
   emblemImage: {
-    width: 78,
-    height: 78,
+    width: '100%',
+    height: '100%',
     borderRadius: 39,
   },
   brandTitle: {
-    fontSize: 34,
-    fontWeight: '700',
-    color: '#102B4C',
+    fontSize: 31,
+    fontWeight: '900',
+    color: '#0A2540',
+    letterSpacing: 1.1,
+    textShadowColor: 'rgba(12, 37, 64, 0.08)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  mottoPill: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    paddingHorizontal: 13,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginTop: 4,
+    marginBottom: 3,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  mottoTamilText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#92400E',
     letterSpacing: 0.5,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
   taglineRow: {
     flexDirection: 'row',
@@ -362,32 +396,32 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   goldLine: {
-    width: 28,
+    width: 26,
     height: 1.5,
     backgroundColor: '#CCA765',
   },
   taglineText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#1B314B',
-    letterSpacing: 2,
-    marginHorizontal: 10,
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#3B4D61',
+    letterSpacing: 1.5,
+    marginHorizontal: 8,
   },
   headingContainer: {
-    marginTop: 6,
-    marginBottom: 18,
+    marginTop: 4,
+    marginBottom: 12,
   },
   mainTitle: {
-    fontSize: 30,
+    fontSize: 27,
     fontWeight: '800',
     color: '#102B4C',
     letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#627D98',
-    marginTop: 4,
-    lineHeight: 21,
+    marginTop: 2,
+    lineHeight: 19,
   },
   formContainer: {
     width: '100%',
@@ -398,9 +432,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1.2,
     borderColor: '#E2EAF1',
-    borderRadius: 18,
+    borderRadius: 16,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 8,
     shadowColor: '#102B4C',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
@@ -408,9 +442,9 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#EFF4F9',
     justifyContent: 'center',
     alignItems: 'center',
@@ -421,17 +455,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   inputLabel: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '500',
     color: '#829AB1',
     marginBottom: 1,
   },
   textInputField: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '500',
     color: '#102B4C',
     padding: 0,
-    height: 24,
+    height: 22,
   },
   eyeIconButton: {
     padding: 8,
@@ -440,21 +474,21 @@ const styles = StyleSheet.create({
   },
   forgotPasswordContainer: {
     alignSelf: 'flex-end',
-    marginTop: 10,
-    marginBottom: 18,
+    marginTop: 8,
+    marginBottom: 12,
     borderBottomWidth: 1.5,
     borderBottomColor: '#CCA765',
     paddingBottom: 2,
   },
   forgotPasswordText: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '600',
     color: '#102B4C',
   },
   loginButton: {
     backgroundColor: '#102B4C',
-    borderRadius: 16,
-    height: 54,
+    borderRadius: 15,
+    height: 50,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#102B4C',
@@ -470,13 +504,13 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     color: '#FFFFFF',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 18,
+    marginVertical: 10,
   },
   dividerLine: {
     flex: 1,
@@ -485,7 +519,7 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     paddingHorizontal: 12,
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '600',
     color: '#829AB1',
     letterSpacing: 0.8,
@@ -496,9 +530,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F6F0',
     borderWidth: 1.2,
     borderColor: '#ECE6D8',
-    borderRadius: 18,
+    borderRadius: 16,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.02,
@@ -506,9 +540,9 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   helpIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#EBDDC5',
     justifyContent: 'center',
     alignItems: 'center',
@@ -518,12 +552,12 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   helpTitle: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '700',
     color: '#102B4C',
   },
   helpSubtitle: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: '#627D98',
     marginTop: 1,
   },

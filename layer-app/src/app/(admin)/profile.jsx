@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   TextInput,
@@ -11,7 +10,9 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -77,6 +78,9 @@ export default function ProfileScreen() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      if (formData.name && formData.name.trim()) {
+        await AsyncStorage.setItem('profileName', formData.name.trim());
+      }
       if (formData.photoUrl) {
         await AsyncStorage.setItem('profilePhotoUrl', formData.photoUrl);
       }
@@ -108,6 +112,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={isDark ? '#0B1120' : '#FFFFFF'} />
       <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.subCardBg }]} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color={colors.text} />
