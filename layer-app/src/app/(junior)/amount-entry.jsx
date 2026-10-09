@@ -103,13 +103,8 @@ export default function AmountEntryScreen() {
         setAssignedCases(caseData.cases);
         setSelectedCase(caseData.cases[0]);
       } else {
-        const fallbackCases = [
-          { caseNumber: 'CSE-001', clientName: 'Raj', courtName: 'Trichy District Court' },
-          { caseNumber: 'CSE-008', clientName: 'Kumar', courtName: 'Madurai Bench' },
-          { caseNumber: 'CSE-012', clientName: 'Priya', courtName: 'Chennai City Civil Court' },
-        ];
-        setAssignedCases(fallbackCases);
-        setSelectedCase(fallbackCases[0]);
+        setAssignedCases([]);
+        setSelectedCase(null);
       }
 
       // Fetch payment history
@@ -133,37 +128,14 @@ export default function AmountEntryScreen() {
         setPaymentHistory(data.payments);
         setTotalAmount(data.totalAmount || 0);
       } else {
-        setDefaultPayments();
+        setPaymentHistory([]);
+        setTotalAmount(0);
       }
     } catch (e) {
       console.error('Error fetching payments:', e);
-      setDefaultPayments();
+      setPaymentHistory([]);
+      setTotalAmount(0);
     }
-  };
-
-  const setDefaultPayments = () => {
-    const sample = [
-      {
-        _id: '1',
-        caseNumber: 'CSE-001',
-        clientName: 'Raj',
-        amountReceived: 10000,
-        date: '22-09-2026',
-        remarks: 'Initial payment',
-        paymentMode: 'Cash',
-      },
-      {
-        _id: '2',
-        caseNumber: 'CSE-001',
-        clientName: 'Raj',
-        amountReceived: 5000,
-        date: '10-10-2026',
-        remarks: 'Hearing payment',
-        paymentMode: 'UPI',
-      },
-    ];
-    setPaymentHistory(sample);
-    setTotalAmount(15000);
   };
 
   useFocusEffect(

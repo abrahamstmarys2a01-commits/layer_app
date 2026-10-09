@@ -11,7 +11,7 @@ const getOrCreateAdmin = async () => {
     admin = new Admin({
       username: 'admin',
       password: 'admin123',
-      name: 'Senior Advocate',
+      name: 'Admin',
       phone: '+91 98765 43210',
       email: 'admin@firm.com',
       trialStartDate: now,

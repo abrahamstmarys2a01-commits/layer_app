@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,7 +61,7 @@ export default function ChangePasswordScreen() {
 
       if (response.ok && data.success) {
         Alert.alert('Success', 'Password updated successfully!', [
-          { text: 'OK', onPress: () => router.back() },
+          { text: 'OK', onPress: () => router.replace('/(admin)/settings') },
         ]);
       } else {
         Alert.alert('Error', data.message || 'Failed to update password.');
@@ -73,18 +74,24 @@ export default function ChangePasswordScreen() {
     }
   };
 
+  const handleGoBackToSettings = () => {
+    router.replace('/(admin)/settings');
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={isDark ? '#0B1120' : '#FFFFFF'} />
       <View style={[styles.navBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity 
           style={[styles.backButton, { backgroundColor: colors.subCardBg }]} 
-          onPress={() => router.back()}
+          onPress={handleGoBackToSettings}
+          activeOpacity={0.7}
+          accessibilityLabel="Back to Settings"
         >
-          <Ionicons name="arrow-back" size={22} color={colors.text} />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.navTitle, { color: colors.text }]}>Change Password</Text>
-        <View style={{ width: 36 }} />
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -184,6 +191,15 @@ export default function ChangePasswordScreen() {
                 <Text style={styles.saveButtonText}>Update Password</Text>
               </>
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.cancelButton, { borderColor: colors.border }]}
+            onPress={handleGoBackToSettings}
+            disabled={loading}
+          >
+            <Ionicons name="arrow-back-outline" size={16} color={colors.textSecondary} style={{ marginRight: 6 }} />
+            <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Back to Settings</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -287,6 +303,19 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    paddingVertical: 13,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    borderWidth: 1,
+  },
+  cancelButtonText: {
+    fontSize: 14,
     fontWeight: '600',
   },
 });

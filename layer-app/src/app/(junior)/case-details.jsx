@@ -153,61 +153,26 @@ export default function CaseDetailsScreen() {
 
   const setFallbackCase = () => {
     const fallback = {
-      _id: 'sample_id',
-      caseNumber: params.caseNumber || 'CSE-001',
-      clientName: params.clientName || 'Raj',
-      clientMobile: params.clientMobile || '8489645483',
-      courtName: params.courtName || 'Trichy District Court',
-      caseType: params.caseType || 'Civil Suit',
-      caseDescription:
-        'Property title verification, boundary dispute and jewelleries partition matter.',
-      filedDate: '23/09/2026',
-      assignedDate: '23/09/2026',
-      nextHearing: params.nextHearing || '15-10-2026',
+      _id: params.id || caseIdOrNumber,
+      caseNumber: params.caseNumber || (caseIdOrNumber !== 'sample_id' ? caseIdOrNumber : ''),
+      clientName: params.clientName || 'Client',
+      clientMobile: params.clientMobile || '-',
+      courtName: params.courtName || '-',
+      caseType: params.caseType || 'General',
+      caseDescription: params.caseDescription || '',
+      filedDate: params.filedDate || '-',
+      assignedDate: params.assignedDate || '-',
+      nextHearing: params.nextHearing || '-',
       status: params.status || 'Active',
-      priority: 'High',
-      assignedJunior: 'Arun',
-      documents: [
-        { name: 'FIR.pdf', size: '1.4 MB', uploadedAt: '23-09-2026' },
-        { name: 'Agreement.pdf', size: '2.1 MB', uploadedAt: '23-09-2026' },
-        { name: 'Aadhaar.pdf', size: '0.8 MB', uploadedAt: '23-09-2026' },
-        { name: 'Court_Order.pdf', size: '3.2 MB', uploadedAt: '23-09-2026' },
-      ],
-      dailyUpdates: [
-        {
-          _id: 'up_1',
-          date: '22-09-2026',
-          update: 'Client documents verified. Vakalatnama signed and preliminary draft prepared.',
-          attachment: { name: 'Vakalatnama.pdf', size: '1.1 MB' },
-          addedBy: 'Arun',
-          createdAt: new Date().toISOString(),
-        },
-        {
-          _id: 'up_2',
-          date: '28-09-2026',
-          update: 'Hearing completed. Rejoinder arguments submitted before Judge. Next hearing scheduled.',
-          attachment: { name: 'Court_Order.pdf', size: '3.2 MB' },
-          addedBy: 'Arun',
-          createdAt: new Date().toISOString(),
-        },
-      ],
-      hearingsHistory: [
-        {
-          hearingDate: '28-09-2026',
-          hearingNotes: 'Hearing completed. Preliminary arguments and rejoinder submitted to court.',
-          nextHearingDate: '15-10-2026',
-          stage: 'Hearing completed',
-          addedBy: 'Arun',
-          createdAt: new Date().toISOString(),
-        },
-      ],
+      priority: params.priority || 'Normal',
+      assignedJunior: params.assignedJunior || '',
+      documents: [],
+      dailyUpdates: [],
+      hearingsHistory: [],
     };
     setCaseData(fallback);
-    setCasePayments([
-      { date: '22-09-2026', amountReceived: 10000, remarks: 'Initial payment', paymentMode: 'Cash' },
-      { date: '10-10-2026', amountReceived: 5000, remarks: 'Hearing payment', paymentMode: 'UPI' },
-    ]);
-    setCaseTotalReceived(15000);
+    setCasePayments([]);
+    setCaseTotalReceived(0);
   };
 
   useFocusEffect(

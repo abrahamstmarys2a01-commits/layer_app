@@ -31,7 +31,7 @@ export default function AdminDashboard() {
   const [adminName, setAdminName] = useState('Admin');
   const [juniors, setJuniors] = useState([]);
   const [cases, setCases] = useState([]);
-  const [totalAmount, setTotalAmount] = useState(845000);
+  const [totalAmount, setTotalAmount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState(null);
@@ -99,26 +99,12 @@ export default function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      // 1. Load Name & Photo (Default is 'Admin' on fresh login until set in profile)
+      // 1. Load Name & Photo (Default is 'Admin' on fresh install/login until set in profile)
       const storedName = await AsyncStorage.getItem('profileName');
-      if (storedName && storedName.trim()) {
+      if (storedName && storedName.trim() && storedName.trim() !== 'Senior Advocate') {
         setAdminName(storedName.trim());
       } else {
-        const storedAdmin = await AsyncStorage.getItem('@admin_info');
-        if (storedAdmin) {
-          try {
-            const parsed = JSON.parse(storedAdmin);
-            if (parsed.name && parsed.name.trim()) {
-              setAdminName(parsed.name.trim());
-            } else {
-              setAdminName('Admin');
-            }
-          } catch (e) {
-            setAdminName('Admin');
-          }
-        } else {
-          setAdminName('Admin');
-        }
+        setAdminName('Admin');
       }
 
       const storedPhoto = await AsyncStorage.getItem('profilePhotoUrl');
@@ -181,13 +167,17 @@ export default function AdminDashboard() {
       if (paymentsRes && paymentsRes.ok) {
         try {
           const pData = await paymentsRes.json();
-          if (pData && Array.isArray(pData.payments)) {
-            const sum = pData.payments.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-            if (sum > 0) setTotalAmount(sum);
-          } else if (pData && pData.totalAmount) {
-            setTotalAmount(Number(pData.totalAmount));
+          if (pData && pData.totalAmount !== undefined && pData.totalAmount !== null) {
+            setTotalAmount(Number(pData.totalAmount) || 0);
+          } else if (pData && Array.isArray(pData.payments)) {
+            const sum = pData.payments.reduce((acc, curr) => acc + (Number(curr.amountReceived || curr.amount) || 0), 0);
+            setTotalAmount(sum);
+          } else {
+            setTotalAmount(0);
           }
-        } catch (e) {}
+        } catch (e) {
+          setTotalAmount(0);
+        }
       }
     } catch (e) {
       console.warn('Warning fetching admin dashboard data:', e.message || e);
@@ -314,13 +304,16 @@ export default function AdminDashboard() {
     }
   };
 
-  // Counts & Calculations
+  // Notifications Modal State
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+
+  // Counts & Calculations - strictly use real database values without mock fallbacks
   const pendingClosures = cases.filter(
     (c) => c.status === 'Closure Requested' || c.closureRequest?.status === 'Pending'
   );
 
-  const displayTotalJuniors = juniors.length > 0 ? juniors.length : 24;
-  const displayTotalCases = cases.length > 0 ? cases.length : 156;
+  const displayTotalJuniors = juniors.length;
+  const displayTotalCases = cases.length;
 
   const ongoingCasesCount = cases.filter(
     (c) =>
@@ -345,19 +338,74 @@ export default function AdminDashboard() {
       c.status.toLowerCase() === 'closure requested'
   ).length;
 
-  const ongoingCount = cases.length > 0 ? (ongoingCasesCount || Math.round(displayTotalCases * 0.46)) : 72;
-  const completedCount = cases.length > 0 ? (completedCasesCount || Math.round(displayTotalCases * 0.35)) : 54;
-  const pendingCount = cases.length > 0 ? (pendingCasesCount || Math.max(1, displayTotalCases - ongoingCount - completedCount)) : 30;
-  const totalChartCases = ongoingCount + completedCount + pendingCount;
+  const ongoingCount = ongoingCasesCount;
+  const completedCount = completedCasesCount;
+  const pendingCount = pendingCasesCount;
+  const totalChartCases = ongoingCount + completedCount + pendingCount || 1;
 
-  const todayHearingsCount = cases.filter(
+  const todayStr = getTodayFormatted();
+  const todayHearingsList = cases.filter(
     (c) =>
       c.status !== 'Closed' &&
       c.status !== 'Disposed' &&
+      c.status !== 'Completed' &&
       c.nextHearing &&
       c.nextHearing.trim() !== '' &&
-      c.nextHearing !== '-'
-  ).length || 38;
+      c.nextHearing !== '-' &&
+      (c.nextHearing === todayStr || c.nextHearing.replace(/\//g, '-') === todayStr)
+  );
+  const todayHearingsCount = todayHearingsList.length;
+
+  const upcomingHearingsList = cases.filter(
+    (c) =>
+      c.status !== 'Closed' &&
+      c.status !== 'Disposed' &&
+      c.status !== 'Completed' &&
+      c.nextHearing &&
+      c.nextHearing.trim() !== '' &&
+      c.nextHearing !== '-' &&
+      c.nextHearing !== todayStr &&
+      c.nextHearing.replace(/\//g, '-') !== todayStr
+  );
+
+  // Combine live notifications
+  const liveNotifications = [
+    ...todayHearingsList.map((c) => ({
+      id: `hearing_${c._id || c.caseNumber}`,
+      type: 'HEARING_TODAY',
+      title: `Hearing Listed Today: ${c.caseNumber}`,
+      subtitle: `${c.clientName || 'Client'} • ${c.courtName || 'District Court'}`,
+      time: 'Today',
+      icon: 'calendar',
+      iconColor: '#DC2626',
+      bgColor: '#FEE2E2',
+      caseItem: c,
+    })),
+    ...pendingClosures.map((c) => ({
+      id: `closure_${c._id || c.caseNumber}`,
+      type: 'CLOSURE_REQUEST',
+      title: `Closure Approval Needed: ${c.caseNumber}`,
+      subtitle: `Requested by ${c.closureRequest?.requestedBy || 'Junior'} (${c.closureRequest?.reason || 'Settled'})`,
+      time: 'Action Required',
+      icon: 'checkmark-done-circle',
+      iconColor: '#EA580C',
+      bgColor: '#FFEDD5',
+      caseItem: c,
+    })),
+    ...upcomingHearingsList.slice(0, 5).map((c) => ({
+      id: `upcoming_${c._id || c.caseNumber}`,
+      type: 'UPCOMING_HEARING',
+      title: `Upcoming Hearing: ${c.caseNumber}`,
+      subtitle: `${c.nextHearing} • ${c.courtName || 'Court'}`,
+      time: c.nextHearing,
+      icon: 'time',
+      iconColor: '#2563EB',
+      bgColor: '#DBEAFE',
+      caseItem: c,
+    })),
+  ];
+
+  const totalNotifsCount = liveNotifications.length;
 
   // SVG Donut Chart Setup
   const radius = 52;
@@ -405,13 +453,17 @@ export default function AdminDashboard() {
         <View style={styles.headerRightRow}>
           <TouchableOpacity
             style={styles.headerIconBtn}
-            onPress={() => Alert.alert('Notifications', 'You have no new urgent alerts.')}
+            onPress={() => setShowNotificationModal(true)}
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <View>
               <Ionicons name="notifications-outline" size={23} color="#FFFFFF" />
-              <View style={styles.notificationDot} />
+              {totalNotifsCount > 0 && (
+                <View style={styles.notificationBadgeContainer}>
+                  <Text style={styles.notificationBadgeText}>{totalNotifsCount > 9 ? '9+' : totalNotifsCount}</Text>
+                </View>
+              )}
             </View>
           </TouchableOpacity>
 
@@ -960,6 +1012,90 @@ export default function AdminDashboard() {
                     <Text style={styles.submitCloseBtnText}>Confirm & Close Case</Text>
                   </>
                 )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 🔔 Live Notification Center Modal */}
+      <Modal
+        visible={showNotificationModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowNotificationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '85%' }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity
+                  style={{ padding: 4, marginRight: 8 }}
+                  onPress={() => setShowNotificationModal(false)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="arrow-back" size={22} color="#0F172A" />
+                </TouchableOpacity>
+                <View>
+                  <Text style={styles.modalTitle}>Chamber Notifications</Text>
+                  <Text style={styles.modalSubtitle}>{liveNotifications.length} active alerts & reminders</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setShowNotificationModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+              {liveNotifications.length === 0 ? (
+                <View style={styles.emptyNotifContainer}>
+                  <View style={styles.emptyNotifIconCircle}>
+                    <Ionicons name="notifications-off-outline" size={32} color="#94A3B8" />
+                  </View>
+                  <Text style={styles.emptyNotifTitle}>All Clear</Text>
+                  <Text style={styles.emptyNotifSub}>No urgent hearing alerts or pending actions right now.</Text>
+                </View>
+              ) : (
+                liveNotifications.map((n) => (
+                  <TouchableOpacity
+                    key={n.id}
+                    style={[styles.notifCard, { borderLeftColor: n.iconColor }]}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      setShowNotificationModal(false);
+                      if (n.type === 'CLOSURE_REQUEST') {
+                        handleOpenCloseModal(n.caseItem);
+                      } else {
+                        router.push({
+                          pathname: '/(admin)/cases-list',
+                          params: { filter: n.type === 'HEARING_TODAY' ? 'Hearings Today' : 'All' },
+                        });
+                      }
+                    }}
+                  >
+                    <View style={[styles.notifIconCircle, { backgroundColor: n.bgColor }]}>
+                      <Ionicons name={n.icon} size={20} color={n.iconColor} />
+                    </View>
+                    <View style={styles.notifTextContainer}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                        <Text style={[styles.notifBadgeLabel, { color: n.iconColor }]}>
+                          {n.type === 'HEARING_TODAY' ? "TODAY'S HEARING" : n.type === 'CLOSURE_REQUEST' ? 'CLOSURE REQUEST' : 'UPCOMING HEARING'}
+                        </Text>
+                        <Text style={styles.notifTimeText}>{n.time}</Text>
+                      </View>
+                      <Text style={styles.notifCardTitle}>{n.title}</Text>
+                      <Text style={styles.notifCardSub}>{n.subtitle}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
+
+              <TouchableOpacity
+                style={styles.dismissAllBtn}
+                onPress={() => setShowNotificationModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dismissAllBtnText}>Close Notifications</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -1566,5 +1702,112 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#94A3B8',
     fontWeight: '500',
+  },
+  notificationBadgeContainer: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    backgroundColor: '#EF4444',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: '#064E3B',
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    fontWeight: '800',
+  },
+  notifCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 13,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderLeftWidth: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  notifIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 11,
+    marginTop: 2,
+  },
+  notifTextContainer: {
+    flex: 1,
+  },
+  notifBadgeLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  notifTimeText: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  notifCardTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  notifCardSub: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 16,
+  },
+  emptyNotifContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 20,
+  },
+  emptyNotifIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyNotifTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 4,
+  },
+  emptyNotifSub: {
+    fontSize: 13,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  dismissAllBtn: {
+    backgroundColor: '#064E3B',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  dismissAllBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
   },
 });

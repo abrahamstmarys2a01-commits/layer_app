@@ -68,8 +68,12 @@ export default function LoginScreen() {
         } else {
           // Admin user logged in
           await AsyncStorage.setItem('@user_role', 'admin');
-          if (data.admin?.name) {
-            await AsyncStorage.setItem('profileName', data.admin.name);
+          if (
+            data.admin?.name &&
+            data.admin.name.trim().toLowerCase() !== 'senior advocate' &&
+            data.admin.name.trim().toLowerCase() !== 'admin'
+          ) {
+            await AsyncStorage.setItem('profileName', data.admin.name.trim());
           }
           if (data.admin) {
             await AsyncStorage.setItem('@admin_info', JSON.stringify(data.admin));

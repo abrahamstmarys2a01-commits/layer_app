@@ -16,10 +16,10 @@ export default function ThemeSettingsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/(admin)/settings')}>
           <Ionicons name="arrow-back" size={24} color="#0F172A" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Theme</Text>
+        <Text style={styles.headerTitle}>Theme Settings</Text>
         <View style={{ width: 24 }} />
       </View>
 

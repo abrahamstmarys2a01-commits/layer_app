@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../context/ThemeContext';
 
 export default function SettingsScreen() {
@@ -25,6 +26,42 @@ export default function SettingsScreen() {
   const [hearingAlerts, setHearingAlerts] = useState(true);
   const [deadlineReminders, setDeadlineReminders] = useState(true);
   const [caseAllocationNotif, setCaseAllocationNotif] = useState(true);
+
+  useEffect(() => {
+    // Load persisted notification preferences
+    const loadPreferences = async () => {
+      try {
+        const storedHearing = await AsyncStorage.getItem('@pref_hearing_alerts');
+        const storedDeadline = await AsyncStorage.getItem('@pref_deadline_reminders');
+        const storedCaseAlloc = await AsyncStorage.getItem('@pref_case_allocation');
+        if (storedHearing !== null) setHearingAlerts(storedHearing === 'true');
+        if (storedDeadline !== null) setDeadlineReminders(storedDeadline === 'true');
+        if (storedCaseAlloc !== null) setCaseAllocationNotif(storedCaseAlloc === 'true');
+      } catch (e) {}
+    };
+    loadPreferences();
+  }, []);
+
+  const handleSaveNotifications = async () => {
+    try {
+      await AsyncStorage.setItem('@pref_hearing_alerts', String(hearingAlerts));
+      await AsyncStorage.setItem('@pref_deadline_reminders', String(deadlineReminders));
+      await AsyncStorage.setItem('@pref_case_allocation', String(caseAllocationNotif));
+    } catch (e) {}
+    setShowNotificationModal(false);
+    Alert.alert(
+      'Notification Settings Saved',
+      'Your notification preferences are active. You will receive real-time hearing reminders and chamber alerts.'
+    );
+  };
+
+  const handleTestNotification = () => {
+    Alert.alert(
+      '🔔 Live Hearing Notification',
+      'Test Alert: High Court Hearing scheduled for tomorrow (10:30 AM). Case: WP/2026/042 - Partition Matter (Court Hall 4).',
+      [{ text: 'Dismiss', style: 'cancel' }, { text: 'View Case', onPress: () => router.push('/(admin)/cases-list') }]
+    );
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -46,11 +83,26 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={isDark ? '#0B1120' : '#FFFFFF'} />
+      
+      {/* Top Navigation Bar with Back Arrow to Dashboard */}
+      <View style={[styles.navBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <TouchableOpacity
+          style={[styles.backButton, { backgroundColor: colors.subCardBg }]}
+          onPress={() => router.replace('/(admin)/dashboard')}
+          activeOpacity={0.7}
+          accessibilityLabel="Back to Dashboard"
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={[styles.navTitle, { color: colors.text }]}>Chamber Settings</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Chamber Settings</Text>
           <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-            Manage your chamber account, security & preferences
+            Manage your advocate account, security, preferences & alerts
           </Text>
         </View>
 
@@ -89,7 +141,7 @@ export default function SettingsScreen() {
 
         {/* PREFERENCES SECTION */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Preferences</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Preferences & Alerts</Text>
 
           <TouchableOpacity
             style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -99,8 +151,13 @@ export default function SettingsScreen() {
               <Ionicons name="notifications-outline" size={22} color={colors.iconColor} />
             </View>
             <View style={styles.menuItemContent}>
-              <Text style={[styles.menuItemText, { color: colors.text }]}>Notifications</Text>
-              <Text style={[styles.menuItemSubtext, { color: colors.textSecondary }]}>Hearing reminders & alerts</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={[styles.menuItemText, { color: colors.text }]}>Notifications</Text>
+                <View style={styles.activeBadge}>
+                  <Text style={styles.activeBadgeText}>Active</Text>
+                </View>
+              </View>
+              <Text style={[styles.menuItemSubtext, { color: colors.textSecondary }]}>Hearing reminders & chamber alerts</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -125,16 +182,23 @@ export default function SettingsScreen() {
 
         <View style={styles.footer}>
           <Text style={[styles.versionText, { color: colors.textSecondary }]}>
-            Admin Chamber OS • v1.0.0
+            Vakil Grid Chamber OS • v1.0.0
           </Text>
         </View>
       </ScrollView>
 
-      {/* NOTIFICATIONS MODAL */}
+      {/* NOTIFICATIONS MODAL WITH BACK ARROW */}
       <Modal visible={showNotificationModal} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.modalBg }]}>
             <View style={styles.modalHeader}>
+              <TouchableOpacity 
+                style={styles.modalBackBtn}
+                onPress={() => setShowNotificationModal(false)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="arrow-back" size={22} color={colors.text} />
+              </TouchableOpacity>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Notification Settings</Text>
               <TouchableOpacity onPress={() => setShowNotificationModal(false)}>
                 <Ionicons name="close" size={22} color={colors.textSecondary} />
@@ -177,14 +241,21 @@ export default function SettingsScreen() {
               />
             </View>
 
+            {/* Test Notification Button */}
+            <TouchableOpacity
+              style={[styles.testNotifBtn, { borderColor: colors.border }]}
+              onPress={handleTestNotification}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="notifications" size={16} color={colors.primaryButtonBg} style={{ marginRight: 6 }} />
+              <Text style={[styles.testNotifText, { color: colors.primaryButtonBg }]}>Send Test Notification</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.saveNotifButton, { backgroundColor: colors.primaryButtonBg }]}
-              onPress={() => {
-                setShowNotificationModal(false);
-                Alert.alert('Settings Saved', 'Notification preferences updated successfully.');
-              }}
+              onPress={handleSaveNotifications}
             >
-              <Text style={styles.saveNotifButtonText}>Done</Text>
+              <Text style={styles.saveNotifButtonText}>Save & Return to Settings</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -196,6 +267,54 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+  },
+  navBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 44 : 12,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 8,
+  },
+  navTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  activeBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  activeBadgeText: {
+    color: '#16A34A',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  modalBackBtn: {
+    padding: 4,
+    marginRight: 8,
+  },
+  testNotifBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    marginTop: 14,
+    borderStyle: 'dashed',
+  },
+  testNotifText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   container: {
     flex: 1,

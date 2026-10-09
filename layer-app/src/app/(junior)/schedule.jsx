@@ -84,44 +84,11 @@ export default function JuniorSchedule() {
         );
         setHearings(withHearings);
       } else {
-        setHearings([
-          {
-            _id: '1',
-            caseNumber: 'CSE-001',
-            clientName: 'Raj',
-            clientMobile: '+91 98765 11001',
-            courtName: 'Trichy District Court',
-            caseType: 'Civil Suit',
-            nextHearing: '28-09-2026',
-            priority: 'High',
-            status: 'Active',
-          },
-          {
-            _id: '2',
-            caseNumber: 'CSE-008',
-            clientName: 'Kumar',
-            clientMobile: '+91 98765 11008',
-            courtName: 'Madurai Bench',
-            caseType: 'Criminal Appeal',
-            nextHearing: '02-10-2026',
-            priority: 'Urgent',
-            status: 'Active',
-          },
-          {
-            _id: '3',
-            caseNumber: 'CSE-012',
-            clientName: 'Priya',
-            clientMobile: '+91 98765 11012',
-            courtName: 'Chennai City Civil Court',
-            caseType: 'Commercial Dispute',
-            nextHearing: '15-10-2026',
-            priority: 'Normal',
-            status: 'Active',
-          },
-        ]);
+        setHearings([]);
       }
     } catch (e) {
       console.error('Error fetching hearings:', e);
+      setHearings([]);
     } finally {
       setLoading(false);
       setRefreshing(false);

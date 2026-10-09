@@ -37,21 +37,24 @@ export default function ProfileScreen() {
       setLoading(true);
       try {
         const storedPhoto = await AsyncStorage.getItem('profilePhotoUrl');
+        const storedName = await AsyncStorage.getItem('profileName');
         const response = await fastFetch(`${API_BASE_URL}/api/admin/profile`);
         if (response.ok) {
           const data = await response.json();
           setFormData({
-            name: data.name || '',
+            name: storedName || (data.name && data.name !== 'Senior Advocate' ? data.name : '') || '',
             phone: data.phone || '',
             email: data.email || '',
-            photoUrl: data.photoUrl || storedPhoto || null,
+            photoUrl: storedPhoto || data.photoUrl || null,
           });
         }
       } catch (error) {
         console.error('Error loading admin profile:', error);
         const storedPhoto = await AsyncStorage.getItem('profilePhotoUrl');
+        const storedName = await AsyncStorage.getItem('profileName');
         setFormData((prev) => ({
           ...prev,
+          name: storedName || '',
           photoUrl: storedPhoto || null,
         }));
       } finally {
@@ -96,7 +99,7 @@ export default function ProfileScreen() {
 
       if (response.ok) {
         Alert.alert('Success', 'Profile updated successfully!', [
-          { text: 'OK', onPress: () => router.back() },
+          { text: 'OK', onPress: () => router.replace('/(admin)/dashboard') },
         ]);
       } else {
         Alert.alert('Error', 'Failed to save profile to server.');
@@ -104,7 +107,7 @@ export default function ProfileScreen() {
     } catch (error) {
       console.error('Error saving profile:', error);
       Alert.alert('Saved Locally', 'Profile saved locally on your device.');
-      router.back();
+      router.replace('/(admin)/dashboard');
     } finally {
       setSaving(false);
     }
@@ -114,8 +117,12 @@ export default function ProfileScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={isDark ? '#0B1120' : '#FFFFFF'} />
       <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.subCardBg }]} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color={colors.text} />
+        <TouchableOpacity 
+          style={[styles.backButton, { backgroundColor: colors.subCardBg }]} 
+          onPress={() => router.replace('/(admin)/settings')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Profile Information</Text>
         <View style={{ width: 36 }} />

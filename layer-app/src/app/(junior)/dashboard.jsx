@@ -61,6 +61,8 @@ export default function JuniorDashboard() {
     });
   };
 
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+
   // Load junior details from AsyncStorage & live profile
   const loadJuniorInfo = async () => {
     try {
@@ -148,10 +150,13 @@ export default function JuniorDashboard() {
 
       if (response.ok && data.success && Array.isArray(data.cases)) {
         processAndSetCases(data.cases);
-        AsyncStorage.setItem(`@cached_junior_cases_${jName}`, JSON.stringify(data.cases));
+      } else {
+        setCases([]);
+        setStats({ activeCases: 0, upcomingHearings: 0, closedCases: 0, totalCases: 0 });
       }
     } catch (e) {
       console.error('Error fetching assigned cases:', e);
+      setCases([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -166,17 +171,7 @@ export default function JuniorDashboard() {
         StatusBar.setTranslucent(true);
       }
 
-      loadJuniorInfo().then(async (name) => {
-        try {
-          const cached = await AsyncStorage.getItem(`@cached_junior_cases_${name}`);
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              processAndSetCases(parsed);
-              setLoading(false);
-            }
-          }
-        } catch (e) {}
+      loadJuniorInfo().then((name) => {
         fetchAssignedCases(name);
       });
 
@@ -247,6 +242,61 @@ export default function JuniorDashboard() {
     return true;
   });
 
+  const getTodayFormatted = () => {
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
+  const todayStr = getTodayFormatted();
+  const todayHearingsList = cases.filter(
+    (c) =>
+      (!c.status || c.status.toLowerCase() === 'active') &&
+      c.nextHearing &&
+      c.nextHearing.trim() !== '' &&
+      c.nextHearing !== '-' &&
+      (c.nextHearing === todayStr || c.nextHearing.replace(/\//g, '-') === todayStr)
+  );
+
+  const upcomingHearingsList = cases.filter(
+    (c) =>
+      (!c.status || c.status.toLowerCase() === 'active') &&
+      c.nextHearing &&
+      c.nextHearing.trim() !== '' &&
+      c.nextHearing !== '-' &&
+      c.nextHearing !== todayStr &&
+      c.nextHearing.replace(/\//g, '-') !== todayStr
+  );
+
+  const liveNotifications = [
+    ...todayHearingsList.map((c) => ({
+      id: `hearing_${c._id || c.caseNumber}`,
+      type: 'HEARING_TODAY',
+      title: `Hearing Listed Today: ${c.caseNumber}`,
+      subtitle: `${c.clientName || 'Client'} • ${c.courtName || 'District Court'}`,
+      time: 'Today',
+      icon: 'calendar',
+      iconColor: '#DC2626',
+      bgColor: '#FEE2E2',
+      caseItem: c,
+    })),
+    ...upcomingHearingsList.slice(0, 5).map((c) => ({
+      id: `upcoming_${c._id || c.caseNumber}`,
+      type: 'UPCOMING_HEARING',
+      title: `Upcoming Hearing: ${c.caseNumber}`,
+      subtitle: `${c.nextHearing} • ${c.courtName || 'Court'}`,
+      time: c.nextHearing,
+      icon: 'time',
+      iconColor: '#2563EB',
+      bgColor: '#DBEAFE',
+      caseItem: c,
+    })),
+  ];
+
+  const totalNotifsCount = liveNotifications.length;
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour >= 4 && hour < 12) return 'Good Morning,';
@@ -298,13 +348,17 @@ export default function JuniorDashboard() {
         <View style={styles.headerRightRow}>
           <TouchableOpacity
             style={styles.headerIconBtn}
-            onPress={() => Alert.alert('Notifications', 'You have no new urgent alerts.')}
+            onPress={() => setShowNotificationModal(true)}
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <View>
               <Ionicons name="notifications-outline" size={23} color="#FFFFFF" />
-              <View style={styles.notificationDot} />
+              {totalNotifsCount > 0 && (
+                <View style={styles.notificationBadgeContainer}>
+                  <Text style={styles.notificationBadgeText}>{totalNotifsCount > 9 ? '9+' : totalNotifsCount}</Text>
+                </View>
+              )}
             </View>
           </TouchableOpacity>
 
@@ -764,6 +818,83 @@ export default function JuniorDashboard() {
             <View style={styles.drawerFooter}>
               <Text style={styles.drawerFooterText}>Vakil Grid Chamber Management v1.0</Text>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 🔔 Live Notification Center Modal */}
+      <Modal
+        visible={showNotificationModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowNotificationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '85%' }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity
+                  style={{ padding: 4, marginRight: 8 }}
+                  onPress={() => setShowNotificationModal(false)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="arrow-back" size={22} color={colors.text} />
+                </TouchableOpacity>
+                <View>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>My Case Alerts</Text>
+                  <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>{liveNotifications.length} active hearing reminders</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setShowNotificationModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+              {liveNotifications.length === 0 ? (
+                <View style={styles.emptyNotifContainer}>
+                  <View style={[styles.emptyNotifIconCircle, { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]}>
+                    <Ionicons name="notifications-off-outline" size={32} color="#94A3B8" />
+                  </View>
+                  <Text style={[styles.emptyNotifTitle, { color: colors.text }]}>No Hearing Alerts</Text>
+                  <Text style={[styles.emptyNotifSub, { color: colors.textSecondary }]}>You do not have any hearings scheduled for today or tomorrow.</Text>
+                </View>
+              ) : (
+                liveNotifications.map((n) => (
+                  <TouchableOpacity
+                    key={n.id}
+                    style={[styles.notifCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: n.iconColor }]}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      setShowNotificationModal(false);
+                      openCaseDetails(n.caseItem);
+                    }}
+                  >
+                    <View style={[styles.notifIconCircle, { backgroundColor: n.bgColor }]}>
+                      <Ionicons name={n.icon} size={20} color={n.iconColor} />
+                    </View>
+                    <View style={styles.notifTextContainer}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                        <Text style={[styles.notifBadgeLabel, { color: n.iconColor }]}>
+                          {n.type === 'HEARING_TODAY' ? "TODAY'S HEARING" : 'UPCOMING HEARING'}
+                        </Text>
+                        <Text style={styles.notifTimeText}>{n.time}</Text>
+                      </View>
+                      <Text style={[styles.notifCardTitle, { color: colors.text }]}>{n.title}</Text>
+                      <Text style={[styles.notifCardSub, { color: colors.textSecondary }]}>{n.subtitle}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
+
+              <TouchableOpacity
+                style={[styles.dismissAllBtn, { backgroundColor: colors.primaryButtonBg }]}
+                onPress={() => setShowNotificationModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dismissAllBtnText}>Close Alerts</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1294,5 +1425,140 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#94A3B8',
     fontWeight: '500',
+  },
+  notificationBadgeContainer: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    backgroundColor: '#EF4444',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: '#064E3B',
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    fontWeight: '800',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    padding: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    marginTop: 1,
+  },
+  notifCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: 14,
+    padding: 13,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  notifIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 11,
+    marginTop: 2,
+  },
+  notifTextContainer: {
+    flex: 1,
+  },
+  notifBadgeLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  notifTimeText: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  notifCardTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  notifCardSub: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  emptyNotifContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 20,
+  },
+  emptyNotifIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyNotifTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  emptyNotifSub: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  dismissAllBtn: {
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  dismissAllBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
   },
 });
