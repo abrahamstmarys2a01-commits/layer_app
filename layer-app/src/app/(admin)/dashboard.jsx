@@ -377,33 +377,68 @@ export default function AdminDashboard() {
   const pendingCount = pendingCasesCount;
   const totalChartCases = ongoingCount + completedCount + pendingCount || 1;
 
-  const todayStr = getTodayFormatted();
-  const todayHearingsList = cases.filter(
-    (c) =>
-      c.status !== 'Closed' &&
-      c.status !== 'Disposed' &&
-      c.status !== 'Completed' &&
-      c.nextHearing &&
-      c.nextHearing.trim() !== '' &&
-      c.nextHearing !== '-' &&
-      (c.nextHearing === todayStr || c.nextHearing.replace(/\//g, '-') === todayStr)
-  );
+    const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayTime = today.getTime();
+
+  // Helper to parse date string (DD-MM-YYYY or YYYY-MM-DD) to midnight Date
+  const parseHearingDate = (dateStr) => {
+    if (!dateStr || typeof dateStr !== 'string' || dateStr.trim() === '' || dateStr.trim() === '-') return null;
+    const parts = dateStr.trim().split(/[-/]/);
+    if (parts.length === 3) {
+      let y, m, d;
+      if (parts[0].length === 4) {
+        y = parseInt(parts[0], 10);
+        m = parseInt(parts[1], 10) - 1;
+        d = parseInt(parts[2], 10);
+      } else {
+        d = parseInt(parts[0], 10);
+        m = parseInt(parts[1], 10) - 1;
+        y = parseInt(parts[2], 10);
+      }
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        const dt = new Date(y, m, d);
+        dt.setHours(0, 0, 0, 0);
+        return dt;
+      }
+    }
+    return null;
+  };
+
+  // Check if today's hearing was already marked as completed / recorded
+  const isTodayHearingDone = (c) => {
+    if (!Array.isArray(c.hearingsHistory)) return false;
+    return c.hearingsHistory.some((h) => {
+      const hd = parseHearingDate(h.hearingDate);
+      return hd && hd.getTime() === todayTime;
+    });
+  };
+
+  // 1. Hearings listed for TODAY (active cases only, not completed yet)
+  const todayHearingsList = cases.filter((c) => {
+    if (c.status && ['closed', 'disposed', 'completed'].includes(c.status.toLowerCase())) return false;
+    const hDate = parseHearingDate(c.nextHearing);
+    if (!hDate) return false;
+    return hDate.getTime() === todayTime && !isTodayHearingDone(c);
+  });
   const todayHearingsCount = todayHearingsList.length;
 
-  const upcomingHearingsList = cases.filter(
-    (c) =>
-      c.status !== 'Closed' &&
-      c.status !== 'Disposed' &&
-      c.status !== 'Completed' &&
-      c.nextHearing &&
-      c.nextHearing.trim() !== '' &&
-      c.nextHearing !== '-' &&
-      c.nextHearing !== todayStr &&
-      c.nextHearing.replace(/\//g, '-') !== todayStr
-  );
+  // 2. Upcoming Hearings: strictly in the FUTURE (> today). Past dates (over / finished) are automatically removed!
+  const upcomingHearingsList = cases
+    .filter((c) => {
+      if (c.status && ['closed', 'disposed', 'completed'].includes(c.status.toLowerCase())) return false;
+      const hDate = parseHearingDate(c.nextHearing);
+      if (!hDate) return false;
+      return hDate.getTime() > todayTime;
+    })
+    .sort((a, b) => {
+      const da = parseHearingDate(a.nextHearing)?.getTime() || 0;
+      const db = parseHearingDate(b.nextHearing)?.getTime() || 0;
+      return da - db;
+    });
 
-  // Combine live notifications
-  const liveNotifications = [
+  // Combine live notifications (Past hearing dates are automatically excluded)
+  const allLiveNotifs = [
     ...todayHearingsList.map((c) => ({
       id: `hearing_${c._id || c.caseNumber}`,
       type: 'HEARING_TODAY',
@@ -439,6 +474,7 @@ export default function AdminDashboard() {
     })),
   ];
 
+  const liveNotifications = allLiveNotifs.filter((n) => !dismissedNotifIds.includes(n.id));
   const totalNotifsCount = liveNotifications.length;
 
   // SVG Donut Chart Setup
@@ -1073,7 +1109,7 @@ export default function AdminDashboard() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
-              {liveNotifications.length === 0 ? (
+                            {liveNotifications.length === 0 ? (
                 <View style={styles.emptyNotifContainer}>
                   <View style={styles.emptyNotifIconCircle}>
                     <Ionicons name="notifications-off-outline" size={32} color="#94A3B8" />
@@ -1082,38 +1118,62 @@ export default function AdminDashboard() {
                   <Text style={styles.emptyNotifSub}>No urgent hearing alerts or pending actions right now.</Text>
                 </View>
               ) : (
-                liveNotifications.map((n) => (
-                  <TouchableOpacity
-                    key={n.id}
-                    style={[styles.notifCard, { borderLeftColor: n.iconColor }]}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      setShowNotificationModal(false);
-                      if (n.type === 'CLOSURE_REQUEST') {
-                        handleOpenCloseModal(n.caseItem);
-                      } else {
-                        router.push({
-                          pathname: '/(admin)/cases-list',
-                          params: { filter: n.type === 'HEARING_TODAY' ? 'Hearings Today' : 'All' },
-                        });
-                      }
-                    }}
-                  >
-                    <View style={[styles.notifIconCircle, { backgroundColor: n.bgColor }]}>
-                      <Ionicons name={n.icon} size={20} color={n.iconColor} />
-                    </View>
-                    <View style={styles.notifTextContainer}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
-                        <Text style={[styles.notifBadgeLabel, { color: n.iconColor }]}>
-                          {n.type === 'HEARING_TODAY' ? "TODAY'S HEARING" : n.type === 'CLOSURE_REQUEST' ? 'CLOSURE REQUEST' : 'UPCOMING HEARING'}
-                        </Text>
-                        <Text style={styles.notifTimeText}>{n.time}</Text>
+                <>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingHorizontal: 2 }}>
+                    <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '600' }}>
+                      {liveNotifications.length} Active Alert{liveNotifications.length > 1 ? 's' : ''}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setDismissedNotifIds(allLiveNotifs.map((n) => n.id))}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Text style={{ fontSize: 12, color: '#DC2626', fontWeight: '700' }}>Clear All</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {liveNotifications.map((n) => (
+                    <TouchableOpacity
+                      key={n.id}
+                      style={[styles.notifCard, { borderLeftColor: n.iconColor }]}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        setShowNotificationModal(false);
+                        if (n.type === 'CLOSURE_REQUEST') {
+                          handleOpenCloseModal(n.caseItem);
+                        } else {
+                          router.push({
+                            pathname: '/(admin)/cases-list',
+                            params: { filter: n.type === 'HEARING_TODAY' ? 'Hearings Today' : 'All' },
+                          });
+                        }
+                      }}
+                    >
+                      <View style={[styles.notifIconCircle, { backgroundColor: n.bgColor }]}>
+                        <Ionicons name={n.icon} size={20} color={n.iconColor} />
                       </View>
-                      <Text style={styles.notifCardTitle}>{n.title}</Text>
-                      <Text style={styles.notifCardSub}>{n.subtitle}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))
+                      <View style={styles.notifTextContainer}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                          <Text style={[styles.notifBadgeLabel, { color: n.iconColor }]}>
+                            {n.type === 'HEARING_TODAY' ? "TODAY'S HEARING" : n.type === 'CLOSURE_REQUEST' ? 'CLOSURE REQUEST' : 'UPCOMING HEARING'}
+                          </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={styles.notifTimeText}>{n.time}</Text>
+                            <TouchableOpacity
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                setDismissedNotifIds((prev) => [...prev, n.id]);
+                              }}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <Ionicons name="close-circle-outline" size={17} color="#94A3B8" />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                        <Text style={styles.notifCardTitle}>{n.title}</Text>
+                        <Text style={styles.notifCardSub}>{n.subtitle}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </>
               )}
 
               <TouchableOpacity
