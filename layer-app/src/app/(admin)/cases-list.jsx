@@ -18,7 +18,7 @@ import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../context/ThemeContext';
-import { API_BASE_URL, fastFetch } from '../../constants/api';
+import { API_BASE_URL, fastFetch, getCachedData } from '../../constants/api';
 
 export default function CasesListScreen() {
   const router = useRouter();
@@ -106,7 +106,25 @@ export default function CasesListScreen() {
   };
 
   const fetchCases = async () => {
-    setLoading(true);
+    // 1. Instant Cache Load (0ms initial render)
+    try {
+      const cached = await getCachedData('/api/cases');
+      if (Array.isArray(cached) && cached.length > 0) {
+        const seen = new Set();
+        const unique = [];
+        for (const c of cached) {
+          const key = (c.caseNumber || c._id || '').trim().toUpperCase().replace(/\s+/g, '');
+          if (key && !seen.has(key)) {
+            seen.add(key);
+            unique.push(c);
+          }
+        }
+        setCases(unique);
+        setLoading(false);
+      }
+    } catch (e) {}
+
+    // 2. Fetch fresh live cases in background
     try {
       const response = await fastFetch(`${API_BASE_URL}/api/cases`);
       const data = await response.json();
@@ -121,12 +139,9 @@ export default function CasesListScreen() {
           }
         }
         setCases(unique);
-      } else {
-        setCases([]);
       }
     } catch (e) {
       console.error('Error fetching cases:', e);
-      setCases([]);
     } finally {
       setLoading(false);
     }

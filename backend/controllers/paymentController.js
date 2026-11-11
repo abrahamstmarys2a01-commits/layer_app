@@ -105,7 +105,7 @@ const getPayments = async (req, res) => {
       ];
     }
 
-    const payments = await Payment.find(filter).sort({ createdAt: -1 });
+    const payments = await Payment.find(filter).sort({ createdAt: -1 }).lean();
     const totalAmount = payments.reduce((acc, curr) => acc + (curr.amountReceived || 0), 0);
 
     // Calculate helpful breakdowns
@@ -160,7 +160,7 @@ const getCasePayments = async (req, res) => {
         { caseNumber: cleanCase },
         { caseNumber: new RegExp(`^${cleanCase.replace(/\s+/g, '\\s*')}$`, 'i') }
       ]
-    }).sort({ createdAt: 1 });
+    }).sort({ createdAt: 1 }).lean();
 
     const totalReceived = payments.reduce((sum, p) => sum + (p.amountReceived || 0), 0);
 

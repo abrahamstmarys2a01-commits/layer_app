@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   Platform,
   ScrollView,
@@ -21,8 +21,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import Svg, { G, Circle } from 'react-native-svg';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { API_BASE_URL, fastFetch } from '../../constants/api';
-import DemoExpiredModal from '../../components/DemoExpiredModal';
+import { API_BASE_URL, fastFetch, getCachedData } from '../../constants/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -38,12 +37,6 @@ export default function AdminDashboard() {
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
-
-  // Demo Trial State
-  const [demoDaysLeft, setDemoDaysLeft] = useState(30);
-  const [showDemoExpired, setShowDemoExpired] = useState(false);
-  const [supportPhone, setSupportPhone] = useState('+91 98765 43210');
-  const [supportWhatsApp, setSupportWhatsApp] = useState('+919876543210');
 
   // Admin Case Closure Modal State
   const [showCloseModal, setShowCloseModal] = useState(false);
@@ -110,27 +103,64 @@ export default function AdminDashboard() {
       const storedPhoto = await AsyncStorage.getItem('profilePhotoUrl');
       setProfilePhoto(storedPhoto || null);
 
-      // 2. Fetch live data
-      const [juniorsRes, casesRes, demoRes, paymentsRes] = await Promise.all([
-        fastFetch(`${API_BASE_URL}/api/juniors`),
-        fastFetch(`${API_BASE_URL}/api/cases`),
-        fastFetch(`${API_BASE_URL}/api/admin/demo-status`, {}, 6000).catch(() => null),
-        fastFetch(`${API_BASE_URL}/api/payments`, {}, 6000).catch(() => null),
-      ]);
+      // 1. Instant Cache Load (0ms initial render)
+      try {
+        const [cachedJuniors, cachedCases, cachedPayments] = await Promise.all([
+          getCachedData('/api/juniors'),
+          getCachedData('/api/cases'),
+          getCachedData('/api/payments'),
+        ]);
 
-      if (demoRes && demoRes.ok) {
-        try {
-          const demoData = await demoRes.json();
-          if (demoData.success) {
-            setDemoDaysLeft(demoData.daysRemaining);
-            if (demoData.supportPhone) setSupportPhone(demoData.supportPhone);
-            if (demoData.supportWhatsApp) setSupportWhatsApp(demoData.supportWhatsApp);
-            if (demoData.isExpired) {
-              setShowDemoExpired(true);
+        let hasCachedData = false;
+        if (Array.isArray(cachedJuniors) && cachedJuniors.length > 0) {
+          const seen = new Set();
+          const uniqueJuniors = [];
+          for (const j of cachedJuniors) {
+            const key = (j.username || j.juniorName || j.email || j._id || '').trim().toLowerCase();
+            if (key && !seen.has(key)) {
+              seen.add(key);
+              uniqueJuniors.push(j);
             }
           }
-        } catch (e) {}
-      }
+          setJuniors(uniqueJuniors);
+          hasCachedData = true;
+        }
+
+        if (Array.isArray(cachedCases) && cachedCases.length > 0) {
+          const seen = new Set();
+          const uniqueCases = [];
+          for (const c of cachedCases) {
+            const key = (c.caseNumber || c._id || '').trim().toUpperCase().replace(/\s+/g, '');
+            if (key && !seen.has(key)) {
+              seen.add(key);
+              uniqueCases.push(c);
+            }
+          }
+          setCases(uniqueCases);
+          hasCachedData = true;
+        }
+
+        if (cachedPayments) {
+          if (Array.isArray(cachedPayments.payments)) {
+            const sum = cachedPayments.payments.reduce((acc, curr) => acc + (Number(curr.amountReceived || curr.amount) || 0), 0);
+            if (sum > 0) setTotalAmount(sum);
+          } else if (cachedPayments.totalAmount) {
+            setTotalAmount(Number(cachedPayments.totalAmount));
+          }
+        }
+
+        if (hasCachedData) {
+          // Immediately hide loading spinner so dashboard appears instantly
+          setLoading(false);
+        }
+      } catch (cacheErr) {}
+
+      // 2. Fetch fresh live data in background
+      const [juniorsRes, casesRes, paymentsRes] = await Promise.all([
+        fastFetch(`${API_BASE_URL}/api/juniors`),
+        fastFetch(`${API_BASE_URL}/api/cases`),
+        fastFetch(`${API_BASE_URL}/api/payments`, {}, 6000).catch(() => null),
+      ]);
 
       try {
         const juniorsData = await juniorsRes.json();
@@ -774,14 +804,6 @@ export default function AdminDashboard() {
             </View>
           </View>
         </View>
-
-        {/* Demo Expired Modal */}
-        <DemoExpiredModal
-          visible={showDemoExpired}
-          supportPhone={supportPhone}
-          supportWhatsApp={supportWhatsApp}
-          onClose={() => setShowDemoExpired(false)}
-        />
       </ScrollView>
 
       {/* 🌟 Sidebar / Drawer Navigation Modal */}

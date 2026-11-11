@@ -13,4 +13,8 @@ const juniorSchema = new mongoose.Schema({
   timestamps: true
 });
 
+juniorSchema.index({ createdAt: -1 });
+juniorSchema.index({ juniorName: 1 });
+juniorSchema.index({ email: 1 });
+
 module.exports = mongoose.model('Junior', juniorSchema);

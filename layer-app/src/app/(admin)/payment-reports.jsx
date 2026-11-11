@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useAppTheme } from '../../context/ThemeContext';
-import { API_BASE_URL, fastFetch } from '../../constants/api';
+import { API_BASE_URL, fastFetch, getCachedData } from '../../constants/api';
 
 export default function PaymentReportsScreen() {
   const router = useRouter();
@@ -45,6 +45,21 @@ export default function PaymentReportsScreen() {
   const [cleaningDuplicates, setCleaningDuplicates] = useState(false);
 
   const fetchPayments = async () => {
+    // 1. Instant Cache Load if default filters
+    if (selectedMode === 'All' && selectedJunior === 'All' && !searchQuery.trim()) {
+      try {
+        const cached = await getCachedData('/api/payments');
+        if (cached && (cached.payments || cached.totalAmount !== undefined)) {
+          if (Array.isArray(cached.payments)) setPayments(cached.payments);
+          if (cached.totalAmount !== undefined) setTotalAmount(cached.totalAmount);
+          if (cached.todayAmount !== undefined) setTodayAmount(cached.todayAmount);
+          if (cached.modeBreakdown) setModeBreakdown(cached.modeBreakdown);
+          if (cached.juniorBreakdown) setJuniorBreakdown(cached.juniorBreakdown);
+          setLoading(false);
+        }
+      } catch (cacheErr) {}
+    }
+
     try {
       let url = `${API_BASE_URL}/api/payments?`;
       const queryParts = [];

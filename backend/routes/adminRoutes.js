@@ -14,14 +14,14 @@ const getOrCreateAdmin = async () => {
       name: 'Admin',
       phone: '+91 98765 43210',
       email: 'admin@firm.com',
-      trialStartDate: now,
-      trialExpiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // 30 Day Demo
+      trialStartDate: null,
+      trialExpiresAt: null, // Unlimited - No demo expiry
       isFirstLogin: false
     });
     await admin.save();
-  } else if (!admin.trialExpiresAt) {
-    admin.trialStartDate = admin.trialStartDate || now;
-    admin.trialExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 Day Demo
+  } else if (admin.trialExpiresAt !== null) {
+    // Permanently remove demo expiry for existing admin
+    admin.trialExpiresAt = null;
     admin.isFirstLogin = false;
     await admin.save();
   }
@@ -43,39 +43,15 @@ expressRouter.post('/login', async (req, res) => {
     // 1. Check if Admin
     if (admin.username.toLowerCase() === trimmedUser.toLowerCase()) {
       if (admin.password === password) {
-        const now = new Date();
-
-        // If first login or uninitialized, start 30-day demo countdown from today
-        if (admin.isFirstLogin || !admin.trialExpiresAt) {
-          admin.trialStartDate = now;
-          admin.trialExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-          admin.isFirstLogin = false;
-          await admin.save();
-        }
-
-        // Check if demo period has expired
-        const isExpired = now > new Date(admin.trialExpiresAt);
-        const msLeft = new Date(admin.trialExpiresAt) - now;
-        const daysRemaining = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
-
-        if (isExpired) {
-          return res.status(403).json({
-            success: false,
-            isExpired: true,
-            message: 'Your 30-day demo period has ended. Please contact support.',
-            trialExpiresAt: admin.trialExpiresAt,
-            supportPhone: admin.supportPhone || '+91 98765 43210',
-            supportWhatsApp: admin.supportWhatsApp || '+919876543210'
-          });
-        }
-
+        // App is permanently active with unlimited access (No 30-day demo lock)
         return res.json({
           success: true,
           role: 'admin',
           message: 'Admin login successful',
           isExpired: false,
-          daysRemaining,
-          trialExpiresAt: admin.trialExpiresAt,
+          isUnlimited: true,
+          daysRemaining: 999999,
+          trialExpiresAt: null,
           supportPhone: admin.supportPhone || '+91 98765 43210',
           supportWhatsApp: admin.supportWhatsApp || '+919876543210',
           admin: {
@@ -99,7 +75,7 @@ expressRouter.post('/login', async (req, res) => {
         { email: trimmedUser.toLowerCase() },
         { juniorName: new RegExp(`^${trimmedUser}$`, 'i') }
       ]
-    });
+    }).lean();
 
     if (junior) {
       if (junior.password === password) {
@@ -189,33 +165,17 @@ expressRouter.post('/change-password', async (req, res) => {
 });
 
 // @route   GET /api/admin/demo-status
-// @desc    Check demo trial status and days remaining
+// @desc    Permanent unlimited status (demo restriction removed)
 expressRouter.get('/demo-status', async (req, res) => {
   try {
     const admin = await getOrCreateAdmin();
-    const now = new Date();
-
-    if (!admin.trialExpiresAt) {
-      return res.json({
-        success: true,
-        isExpired: false,
-        daysRemaining: 30,
-        trialExpiresAt: null,
-        supportPhone: admin.supportPhone || '+91 98765 43210',
-        supportWhatsApp: admin.supportWhatsApp || '+919876543210'
-      });
-    }
-
-    const isExpired = now > new Date(admin.trialExpiresAt);
-    const msLeft = new Date(admin.trialExpiresAt) - now;
-    const daysRemaining = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
-
     res.json({
       success: true,
-      isExpired,
-      daysRemaining,
-      trialStartDate: admin.trialStartDate,
-      trialExpiresAt: admin.trialExpiresAt,
+      isExpired: false,
+      isUnlimited: true,
+      daysRemaining: 999999,
+      trialStartDate: null,
+      trialExpiresAt: null,
       supportPhone: admin.supportPhone || '+91 98765 43210',
       supportWhatsApp: admin.supportWhatsApp || '+919876543210'
     });
@@ -225,24 +185,20 @@ expressRouter.get('/demo-status', async (req, res) => {
 });
 
 // @route   POST /api/admin/reset-demo
-// @desc    Reset demo trial for 30 (or custom) days from today
+// @desc    Permanent activation - ensures no expiry is active
 expressRouter.post('/reset-demo', async (req, res) => {
   try {
-    const { days = 30 } = req.body || {};
     const admin = await getOrCreateAdmin();
-    const now = new Date();
-
-    admin.trialStartDate = now;
-    admin.trialExpiresAt = new Date(now.getTime() + Number(days) * 24 * 60 * 60 * 1000);
-    admin.isFirstLogin = false;
+    admin.trialExpiresAt = null;
     await admin.save();
 
     res.json({
       success: true,
-      message: `Demo trial successfully reset! Fresh ${days} day(s) active from now.`,
+      message: 'Demo limit removed. App is permanently active and unlimited.',
       isExpired: false,
-      daysRemaining: Number(days),
-      trialExpiresAt: admin.trialExpiresAt
+      isUnlimited: true,
+      daysRemaining: 999999,
+      trialExpiresAt: null
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -250,24 +206,20 @@ expressRouter.post('/reset-demo', async (req, res) => {
 });
 
 // @route   GET /api/admin/reset-demo
-// @desc    Convenient browser 1-click URL to reset demo from anywhere
+// @desc    Convenient browser URL to ensure permanent activation
 expressRouter.get('/reset-demo', async (req, res) => {
   try {
-    const days = Number(req.query.days) || 30;
     const admin = await getOrCreateAdmin();
-    const now = new Date();
-
-    admin.trialStartDate = now;
-    admin.trialExpiresAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
-    admin.isFirstLogin = false;
+    admin.trialExpiresAt = null;
     await admin.save();
 
     res.json({
       success: true,
-      message: `Demo trial successfully reset! Fresh ${days} day(s) active from now.`,
+      message: 'Demo limit removed. App is permanently active and unlimited.',
       isExpired: false,
-      daysRemaining: days,
-      trialExpiresAt: admin.trialExpiresAt
+      isUnlimited: true,
+      daysRemaining: 999999,
+      trialExpiresAt: null
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

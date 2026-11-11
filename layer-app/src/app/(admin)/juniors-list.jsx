@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useAppTheme } from '../../context/ThemeContext';
-import { API_BASE_URL, fastFetch } from '../../constants/api';
+import { API_BASE_URL, fastFetch, getCachedData } from '../../constants/api';
 
 export default function JuniorsListScreen() {
   const router = useRouter();
@@ -26,7 +26,25 @@ export default function JuniorsListScreen() {
   const [filterStatus, setFilterStatus] = useState('All');
 
   const fetchJuniors = async () => {
-    setLoading(true);
+    // 1. Instant Cache Load (0ms initial render)
+    try {
+      const cached = await getCachedData('/api/juniors');
+      if (Array.isArray(cached) && cached.length > 0) {
+        const seen = new Set();
+        const unique = [];
+        for (const j of cached) {
+          const key = (j.username || j.juniorName || j.email || j._id || '').trim().toLowerCase();
+          if (key && !seen.has(key)) {
+            seen.add(key);
+            unique.push(j);
+          }
+        }
+        setJuniors(unique);
+        setLoading(false);
+      }
+    } catch (e) {}
+
+    // 2. Fetch fresh live juniors in background
     try {
       const response = await fastFetch(`${API_BASE_URL}/api/juniors`);
       const data = await response.json();
@@ -41,12 +59,9 @@ export default function JuniorsListScreen() {
           }
         }
         setJuniors(unique);
-      } else {
-        setJuniors([]);
       }
     } catch (e) {
       console.error('Error fetching juniors:', e);
-      setJuniors([]);
     } finally {
       setLoading(false);
     }

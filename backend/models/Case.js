@@ -69,4 +69,10 @@ const caseSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Performance Indexes for instant data retrieval
+caseSchema.index({ createdAt: -1 });
+caseSchema.index({ assignedJunior: 1 });
+caseSchema.index({ status: 1 });
+caseSchema.index({ nextHearing: 1 });
+
 module.exports = mongoose.model('Case', caseSchema);

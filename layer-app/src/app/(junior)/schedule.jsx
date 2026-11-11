@@ -73,6 +73,23 @@ export default function JuniorSchedule() {
         if (parsed.juniorName) juniorName = parsed.juniorName;
       }
 
+      // 1. Instant cache load from stored junior cases
+      try {
+        const cached = await AsyncStorage.getItem(`@cached_junior_cases_${juniorName}`);
+        if (cached) {
+          const parsedCases = JSON.parse(cached);
+          if (Array.isArray(parsedCases) && parsedCases.length > 0) {
+            const withHearings = parsedCases.filter(
+              (c) => c.nextHearing && c.nextHearing.trim() !== '' && c.nextHearing !== '-'
+            );
+            if (withHearings.length > 0) {
+              setHearings(withHearings);
+            }
+          }
+        }
+      } catch (cacheErr) {}
+
+      // 2. Fetch fresh hearings in background
       const response = await fastFetch(
         `${API_BASE_URL}/api/juniors/assigned-cases?juniorName=${encodeURIComponent(juniorName)}`
       );

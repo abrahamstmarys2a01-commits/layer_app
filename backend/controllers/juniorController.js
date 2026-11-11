@@ -36,12 +36,12 @@ const addJunior = async (req, res) => {
 // @access  Public
 const getJuniors = async (req, res) => {
   try {
-    const rawJuniors = await Junior.find().sort({ createdAt: -1 });
+    const rawJuniors = await Junior.find().sort({ createdAt: -1 }).lean();
     // Strictly deduplicate by username or juniorName
     const seen = new Set();
     const uniqueJuniors = [];
     for (const j of rawJuniors) {
-      const key = (j.username || j.juniorName || j.email || j._id.toString()).trim().toLowerCase();
+      const key = (j.username || j.juniorName || j.email || (j._id ? j._id.toString() : '')).trim().toLowerCase();
       if (!seen.has(key)) {
         seen.add(key);
         uniqueJuniors.push(j);
@@ -114,7 +114,7 @@ const getJuniorAssignedCases = async (req, res) => {
     }
 
     const regex = new RegExp(queryName.trim(), 'i');
-    const cases = await Case.find({ assignedJunior: { $regex: regex } }).sort({ createdAt: -1 });
+    const cases = await Case.find({ assignedJunior: { $regex: regex } }).sort({ createdAt: -1 }).lean();
 
     const activeCases = cases.filter(c => !c.status || c.status.toLowerCase() === 'active').length;
     const closedCases = cases.filter(c => c.status && (c.status.toLowerCase() === 'closed' || c.status.toLowerCase() === 'disposed' || c.status.toLowerCase() === 'completed')).length;

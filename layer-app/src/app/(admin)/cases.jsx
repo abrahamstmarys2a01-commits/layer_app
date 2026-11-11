@@ -20,7 +20,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAppTheme } from '../../context/ThemeContext';
-import { API_BASE_URL, fastFetch } from '../../constants/api';
+import { API_BASE_URL, fastFetch, getCachedData } from '../../constants/api';
 
 export default function CasesScreen() {
   const { colors, isDark } = useAppTheme();
@@ -171,7 +171,14 @@ export default function CasesScreen() {
       }
 
       const fetchJuniors = async () => {
-        setLoadingJuniors(true);
+        try {
+          const cached = await getCachedData('/api/juniors');
+          if (Array.isArray(cached) && cached.length > 0) {
+            setJuniors(cached);
+            setLoadingJuniors(false);
+          }
+        } catch (e) {}
+
         try {
           const response = await fastFetch(`${API_BASE_URL}/api/juniors`);
           const data = await response.json();

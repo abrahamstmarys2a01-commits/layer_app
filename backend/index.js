@@ -10,9 +10,15 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// High-performance gzip compression middleware
+try {
+  const compression = require('compression');
+  app.use(compression());
+} catch (e) {}
+
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Routes
 app.use('/api/cases', caseRoutes);

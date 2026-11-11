@@ -56,12 +56,12 @@ const addCase = async (req, res) => {
 // @access  Public
 const getCases = async (req, res) => {
   try {
-    const rawCases = await Case.find().sort({ createdAt: -1 });
+    const rawCases = await Case.find().sort({ createdAt: -1 }).lean();
     // Strictly deduplicate by normalized caseNumber
     const seen = new Set();
     const uniqueCases = [];
     for (const c of rawCases) {
-      const key = (c.caseNumber || c._id.toString()).trim().toUpperCase().replace(/\s+/g, '');
+      const key = (c.caseNumber || (c._id ? c._id.toString() : '')).trim().toUpperCase().replace(/\s+/g, '');
       if (!seen.has(key)) {
         seen.add(key);
         uniqueCases.push(c);

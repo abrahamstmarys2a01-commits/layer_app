@@ -16,4 +16,10 @@ const paymentSchema = new mongoose.Schema({
   timestamps: true
 });
 
+paymentSchema.index({ createdAt: -1 });
+paymentSchema.index({ caseNumber: 1 });
+paymentSchema.index({ date: 1 });
+paymentSchema.index({ enteredBy: 1 });
+paymentSchema.index({ paymentMode: 1 });
+
 module.exports = mongoose.model('Payment', paymentSchema);
