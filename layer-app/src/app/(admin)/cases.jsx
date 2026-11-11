@@ -164,11 +164,13 @@ export default function CasesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content');
-      if (Platform.OS === 'android') {
-        StatusBar.setBackgroundColor(isDark ? '#0B1120' : '#FFFFFF');
-        StatusBar.setTranslucent(false);
-      }
+      try {
+        if (typeof StatusBar.setBarStyle === 'function') StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content');
+        if (Platform.OS === 'android') {
+          if (typeof StatusBar.setBackgroundColor === 'function') StatusBar.setBackgroundColor(isDark ? '#0B1120' : '#FFFFFF');
+          if (typeof StatusBar.setTranslucent === 'function') StatusBar.setTranslucent(false);
+        }
+      } catch (e) {}
 
       const fetchJuniors = async () => {
         try {

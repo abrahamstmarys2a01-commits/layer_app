@@ -165,22 +165,26 @@ export default function JuniorDashboard() {
 
   useFocusEffect(
     useCallback(() => {
-      StatusBar.setBarStyle('light-content', true);
-      if (Platform.OS === 'android') {
-        StatusBar.setBackgroundColor('transparent', true);
-        StatusBar.setTranslucent(true);
-      }
+      try {
+        if (typeof StatusBar.setBarStyle === 'function') StatusBar.setBarStyle('light-content', true);
+        if (Platform.OS === 'android') {
+          if (typeof StatusBar.setBackgroundColor === 'function') StatusBar.setBackgroundColor('transparent', true);
+          if (typeof StatusBar.setTranslucent === 'function') StatusBar.setTranslucent(true);
+        }
+      } catch (e) {}
 
       loadJuniorInfo().then((name) => {
         fetchAssignedCases(name);
       });
 
       return () => {
-        StatusBar.setBarStyle('dark-content', true);
-        if (Platform.OS === 'android') {
-          StatusBar.setBackgroundColor('#FFFFFF', true);
-          StatusBar.setTranslucent(false);
-        }
+        try {
+          if (typeof StatusBar.setBarStyle === 'function') StatusBar.setBarStyle('dark-content', true);
+          if (Platform.OS === 'android') {
+            if (typeof StatusBar.setBackgroundColor === 'function') StatusBar.setBackgroundColor('#FFFFFF', true);
+            if (typeof StatusBar.setTranslucent === 'function') StatusBar.setTranslucent(false);
+          }
+        } catch (e) {}
       };
     }, [])
   );
